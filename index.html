@@ -149,6 +149,23 @@ textarea.inp{min-height:76px;resize:vertical;font-size:14px}
 .stats span{font-size:12px;color:var(--muted)}
 svg text{font-family:var(--num);font-size:11px;fill:var(--muted)}
 
+.chips.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--sunk);border-radius:12px;padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .k{font-size:12.5px;color:var(--muted);font-weight:600}
+.tile .v{font-family:var(--num);font-size:34px;font-weight:700;line-height:1.05}
+.tile .v small{font-family:var(--text);font-size:14px;font-weight:600;margin-left:2px}
+.tile .s{font-size:12px;color:var(--muted);line-height:1.35}
+.tile.zero{background:var(--warn-soft)} .tile.zero .v{color:var(--warn)}
+.tile.go{background:var(--accent-soft)} .tile.go .v{color:var(--accent)}
+.stats b.neg{color:var(--warn)}
+.verdict{display:flex;flex-wrap:wrap;gap:6px}
+.verdict .pill{font-size:13px;padding:4px 12px}
+.pill.good{background:var(--accent-soft);color:var(--good)}
+.link{border:0;background:none;padding:4px 0;color:var(--accent);font-weight:600;text-align:left;min-height:32px}
+.est{display:flex;flex-direction:column;gap:8px;background:var(--sunk);border-radius:10px;padding:10px}
+.est .field input{background:var(--surface)}
+
 /* guide */
 details{border-top:1px solid var(--line);padding:10px 0}
 details:first-of-type{border-top:0}
@@ -273,6 +290,7 @@ async function pull(){
 async function initCloud(){
   try{
     if(!window.claude||!window.claude.use) return;
+    window.claude.use("sample").then(f=>{sampleFn=f||null}).catch(()=>{});
     const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
     if(!db||!user) return; const id=await user.id(); if(!id) return;
     col=db.collection("data/users/"+id);
@@ -283,6 +301,21 @@ async function initCloud(){
 
 /* ---------- domain ---------- */
 let cur=today(), tab="today", cat="pro", meal=1, hz={id:null,q:1};
+const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",note:"",open:false,busy:false});
+let cu=cuBlank(), sampleFn=null;
+const EST_PROMPT=`你是营养估算助手。用户用中文描述吃下的一份食物，可能用这些实物单位：1 掌 = 手掌心大小（不含手指）、厚约 1.5cm 的熟肉或海鲜，约 120–130g 熟重；1 拳 = 握紧的拳头大小的熟主食，约 100–130g；两捧 = 双手捧起的蔬菜，约 200g；1 大勺蛋白粉 ≈ 30g 粉。没说做法时按家常少油做法估算，估算的是描述里的整份。只回复一个 JSON 对象，不要其他文字：{"name":"简短名称含份量","p":蛋白质克数,"c":碳水克数,"f":脂肪克数,"note":"一句话说明假设的重量和做法"}。例如：{"name":"章鱼 1 掌","p":30,"c":4,"f":2,"note":"按熟重约 125g、白灼估算。"}。如果描述不是食物，回复 {"error":"无法识别"}。\n\n用户描述：`;
+async function estimate(){
+  const q=cu.q.trim(); if(!q){toast("先写下吃了什么");return}
+  if(!sampleFn){cu.open=true;if(!cu.n)cu.n=q;render();toast("这里连不上 AI，请手动填克数");return}
+  cu.busy=true;render();
+  try{const r=await sampleFn.json(EST_PROMPT+q.slice(0,200),{modelTier:"quick"});
+    if(!r||typeof r!=="object"||r.error) throw {code:"unrecognized"};
+    const num=x=>Math.max(0,Math.min(500,r1(Number(x)||0)));
+    cu.n=String(r.name||q).slice(0,40);cu.p=num(r.p);cu.c=num(r.c);cu.f=num(r.f);cu.note=String(r.note||"").slice(0,120);cu.open=true;
+  }catch(e){const c=e&&e.code; cu.open=true; if(!cu.n)cu.n=q;
+    toast(c==="unrecognized"?"没认出这是什么食物，换个说法试试":c==="rate_limited"?"调用太频繁，稍后再试":c==="not_granted"||c==="sampling_disabled"?"未允许调用 Claude，请手动填克数":"估算没成功，可重试或手动填")}
+  cu.busy=false; if(tab==="today")render();
+}
 try{const t=localStorage.getItem(LS+".tab"); if(t) tab=t}catch(e){}
 const dayOf=d=>S.days[d]||{state:S.settings.plan[parseD(d).getDay()],entries:[],water:0};
 function mut(d,fn){ if(!S.days[d]) S.days[d]={state:S.settings.plan[parseD(d).getDay()],entries:[],water:0}; fn(S.days[d]); touch(d) }
@@ -360,11 +393,12 @@ function viewToday(){
    <div class="tabs" role="group" aria-label="记到哪一餐">${mealTabs}</div>
    <div class="tabs" role="group" aria-label="食物类别">${catTabs}</div>
    <div class="chips">${chips}</div>
-   <details style="border-top:1px solid var(--line);padding-bottom:0"><summary>自定义食物</summary>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-     <label class="field">名称<input id="cu-n" placeholder="例如：外食牛肉面半碗"></label>
-     <div class="grid4"><label class="field">蛋白 g<input id="cu-p" type="number" inputmode="decimal" min="0"></label><label class="field">碳水 g<input id="cu-c" type="number" inputmode="decimal" min="0"></label><label class="field">脂肪 g<input id="cu-f" type="number" inputmode="decimal" min="0"></label><div class="field">&nbsp;<button class="btn primary" data-act="custom">记录</button></div></div>
-    </div></details>
+   <div class="row"><input class="inp grow" id="cu-q" placeholder="或直接描述：一个手掌大的章鱼" value="${esc(cu.q)}" aria-label="描述吃了什么" enterkeyhint="go"><button class="btn primary" data-act="est" ${cu.busy?"disabled":""}>${cu.busy?"估算中…":"估算"}</button></div>
+   ${cu.open?`<div class="est">
+     <label class="field">名称<input id="cu-n" value="${esc(cu.n)}"></label>
+     <div class="grid4"><label class="field">蛋白 g<input id="cu-p" type="number" inputmode="decimal" min="0" value="${esc(cu.p)}"></label><label class="field">碳水 g<input id="cu-c" type="number" inputmode="decimal" min="0" value="${esc(cu.c)}"></label><label class="field">脂肪 g<input id="cu-f" type="number" inputmode="decimal" min="0" value="${esc(cu.f)}"></label><div class="field">&nbsp;<button class="btn primary" data-act="custom">记录</button></div></div>
+     ${cu.note?`<div class="small muted">${esc(cu.note)} 数值可以直接改。</div>`:""}
+    </div>`:`<button class="link" data-act="cuopen">不估算，手动填克数</button>`}
   </section>
   <section class="panel">
    <div class="sec-title"><h2>今日记录</h2><span class="num muted">${r0(T.k)} kcal</span></div>
@@ -376,53 +410,42 @@ function viewToday(){
   </section>`;
 }
 
-function hedgePlan(day,date,extra){
+function hedgePlan(day,extra){
   const t=targets(day.state), T=totals(day); T.p+=extra.p;T.c+=extra.c;T.f+=extra.f;T.k=kcalOf(T);
   const needP=Math.max(0,t.p[0]-T.p), por=needP<=8?0:needP<=38?1:2, dinnerK=por*145+90;
   const remC=t.c[1]-T.c, remF=t.f[1]-T.f, remK=t.k[1]-T.k;
-  const fists=Math.max(0,half(Math.min(remC/33,(remK-dinnerK)/140))-0);
-  const fl=Math.floor(fists*2)/2;
+  const fl=Math.max(0,Math.floor(Math.min(remC/33,(remK-dinnerK)/140)*2)/2);
   const over=Math.max(0,-(remK-dinnerK-fl*140));
-  const L=[];
-  const sgn=(v,u)=>v>=0?`剩 ${r0(v)}${u}`:`<b>超 ${r0(-v)}${u}</b>`;
-  L.push(`吃完后今天的额度：碳水${sgn(remC," g")} · 脂肪${sgn(remF," g")} · 热量${sgn(remK," kcal")}。`);
-  if(fl<0.5) L.push("<b>今晚主食归零</b>：不吃米面、法棍、紫薯。"); else L.push(`今晚主食还可以吃 <b>${fl} 拳</b>，不用归零。`);
-  if(por===0) L.push("蛋白已达标，晚餐只需要 <b>两捧绿叶蔬菜</b>，饿的话加 1 个水煮蛋。");
-  else if(por===1) L.push("晚餐：<b>1 掌纯瘦肉</b>（鸡胸/虾/白身鱼），或<b>清水冲 1 大勺 Bulk 蛋白粉</b>，配<b>两捧绿叶蔬菜</b>撑饱。");
-  else L.push(`蛋白还差 ${r0(needP)}g：现在先<b>水冲 1 大勺蛋白粉</b>，晚餐再吃 <b>1 掌纯瘦肉 + 两捧蔬菜</b>。蛋白底线不为甜点让路。`);
-  if(remF<8) L.push("脂肪见顶：晚餐蒸、煮、空气炸，不再加烹调油和坚果，牛奶换成水。");
-  if(over>60){const n=Math.min(5,Math.max(2,Math.ceil(over/80))); L.push(`这样吃完仍超出约 <b>${r0(over)} kcal</b>。不用今晚硬扛，接下来 <b>${n} 天每天少半拳主食</b>（约 −80 kcal/天）就摊平了。`)}
-  else L.push("这样吃完全天仍在额度内，这块甜点已经被消化进计划。");
-  L.push("不加练、不跳过明天的练后大餐，明早照常称重（多出的多半是水和糖原）。");
-  return L;
+  return {remC,remF,remK,fl,por,over,days:Math.min(5,Math.max(2,Math.ceil(over/80)))};
 }
 function viewHedge(){
   const day=dayOf(cur), sel=FOODS.find(f=>f.id===hz.id);
   const extra=sel?{p:sel.p*hz.q,c:sel.c*hz.q,f:sel.f*hz.q}:{p:0,c:0,f:0};
-  const sweets=day.entries.filter(e=>e.s);
-  const chips=FOODS.filter(f=>f.cat==="sweet").map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">约 ${r0(kcalOf(f))} kcal · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("");
-  const show=sel||sweets.length;
+  const show=sel||day.entries.some(e=>e.s);
+  const chips=FOODS.filter(f=>f.cat==="sweet").map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${f.n.replace(/ 1 .+$/,"")}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
+  let res='<div class="empty">点一款甜点，马上看到今晚怎么吃。</div>';
+  if(show){const h=hedgePlan(day,extra);
+    const bud=(v,u,l)=>`<div><b class="${v<0?"neg":""}">${v<0?"超 ":""}${r0(Math.abs(v))}</b><span>${l}${v<0?"":"还剩"} ${u}</span></div>`;
+    const pro=h.por===0?["✓","","已达标"]:h.por===1?["1","掌","瘦肉，或水冲 1 勺蛋白粉"]:["1+1","","先冲 1 勺蛋白粉，晚餐 1 掌瘦肉"];
+    res=`<div class="tiles">
+      <div class="tile ${h.fl<0.5?"zero":"go"}"><span class="k">主食</span><span class="v">${h.fl}<small>拳</small></span><span class="s">${h.fl<0.5?"今晚归零":"不用归零"}</span></div>
+      <div class="tile"><span class="k">蛋白</span><span class="v">${pro[0]}<small>${pro[1]}</small></span><span class="s">${pro[2]}</span></div>
+      <div class="tile"><span class="k">蔬菜</span><span class="v">2<small>捧</small></span><span class="s">绿叶菜撑饱</span></div></div>
+     <div class="verdict">${h.over>60?`<span class="pill warn">仍超 ${r0(h.over)} kcal → 接下来 ${h.days} 天每天少半拳主食</span>`:`<span class="pill good">吃完全天仍在额度内</span>`}
+      ${h.remF<8?'<span class="pill warn">今晚蒸煮，不加油</span>':""}<span class="pill">不加练，明早照常</span></div>
+     <div class="stats">${bud(h.remC,"g","碳水")}${bud(h.remF,"g","脂肪")}${bud(h.remK,"kcal","热量")}</div>`}
   return `
-  <header class="top"><div class="date"><div class="d1">甜点对冲</div><div class="d2">${cur===today()?"今天":cur} · ${STATES[day.state].t}。想吃就吃，把账算清楚。</div></div></header>
+  <header class="top"><div class="date"><div class="d1">甜点对冲</div><div class="d2">${cur===today()?"今天":cur} · ${STATES[day.state].t}</div></div></header>
   <section class="panel">
-   <div class="sec-title"><h2>想吃 / 吃了什么</h2><span class="muted small">先预演，再决定</span></div>
-   <div class="chips">${chips}</div>
-   ${sel?`<div class="row"><div class="grow"><b>${esc(sel.n)}</b> <span class="num muted">约 ${r0(kcalOf(sel)*hz.q)} kcal</span></div>
+   <div class="chips c3">${chips}</div>
+   ${sel?`<div class="row"><div class="grow"><b>${esc(sel.n)}</b> <span class="num muted">${r0(kcalOf(sel)*hz.q)} kcal</span></div>
      <div class="step"><button data-act="hzq" data-v="-0.5" aria-label="减半份">−</button><span class="q">×${hz.q}</span><button data-act="hzq" data-v="0.5" aria-label="加半份">+</button></div></div>
-     <div class="row"><button class="btn primary grow" data-act="hzadd">已经吃了，记入今天</button><button class="btn" data-act="hzclear">只是看看</button></div>`:""}
-   <p class="muted small" style="margin:0">没有你吃的那款？在“今天”页用自定义食物记录，这里会自动按实际摄入给方案。</p>
+     <div class="row"><button class="btn primary grow" data-act="hzadd">吃了，记入今天</button><button class="btn" data-act="hzclear">不吃了</button></div>`:""}
   </section>
   <section class="panel">
-   <div class="sec-title"><h2>${sel?"如果吃它，今晚这样对冲":"今晚对冲方案"}</h2></div>
-   ${show?`<ol class="plan">${hedgePlan(day,cur,extra).map(l=>`<li>${l}</li>`).join("")}</ol>`:'<div class="empty">选一款甜点，立刻看到今晚怎么吃才不亏。</div>'}
-  </section>
-  <section class="panel"><h2>对冲规则</h2>
-   <ul class="plan">
-    <li>甜点优先放在<b>训练日练后</b>的那一餐里吃，糖原最空，去向最好。</li>
-    <li>先保蛋白质底线，再从主食和烹调油里腾额度。</li>
-    <li>单日超出不到 300 kcal，用 2–4 天各少半拳主食摊平；一周总量才是结果。</li>
-    <li>每周主动安排 1–2 次甜点，比忍到失控再补偿更稳。</li>
-   </ul></section>`;
+   <div class="sec-title"><h2>${sel?"如果吃它，今晚":"今晚"}</h2><span class="muted small">${sel?"预演，尚未记录":show?"按已记录的甜点":""}</span></div>
+   ${res}
+  </section>`;
 }
 
 function weekDates(d){const dt=parseD(d),wd=(dt.getDay()+6)%7,mon=addDays(d,-wd);return Array.from({length:7},(_,i)=>addDays(mon,i))}
@@ -537,6 +560,11 @@ function viewGuide(){
     <li><b>C（休息日）</b>：主食少 1 拳，放在白天；蛋白照旧分 3 餐，蔬菜加量；日常多走到 8000 步。</li>
     <li>每餐蛋白 25–40g。单餐多吃不会浪费，但分开吃更饱、更稳。</li>
     <li>空腹练大重量前头晕手抖：半根香蕉或 1 片吐司，记在“加餐/练前”即可。</li></ul></details>
+   <details><summary>甜点对冲规则</summary><ul>
+    <li>甜点优先放在<b>训练日练后</b>那一餐，糖原最空。</li>
+    <li>先保蛋白底线，再从主食和烹调油里腾额度；额度用完当晚主食归零。</li>
+    <li>仍超出的部分用 2–5 天各少半拳主食摊平，不加练、不饿肚子。</li>
+    <li>每周主动安排 1–2 次甜点，比忍到失控再补偿更稳。</li></ul></details>
    <details><summary>训练要点</summary><ul>
     <li>先抗阻后爬坡。抗阻决定保不保得住肌肉，放在体力最好的时候。</li>
     <li>4 天建议：臀腿 / 上肢推拉 / 后链（硬拉、臀推）/ 全身。每个动作 3–4 组、每组 8–12 次，留 1–2 次余力。</li>
@@ -598,13 +626,15 @@ document.addEventListener("click",ev=>{
   else if(a==="meal"){meal=+v} else if(a==="cat"){cat=v}
   else if(a==="add"){const f=FOODS.find(x=>x.id===v);addFood(f,1,meal);toast("已记录 "+f.n)}
   else if(a==="inc"||a==="dec"){mut(cur,d=>{const e=d.entries.find(x=>x.id===v);if(!e)return;e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)})}
-  else if(a==="custom"){const n=document.getElementById("cu-n").value.trim(),g=id=>Math.max(0,parseFloat(document.getElementById(id).value)||0);
-    const p=g("cu-p"),c=g("cu-c"),f=g("cu-f"); if(!n||!(p+c+f)){toast("填上名称和至少一项克数");return}
-    mut(cur,d=>{d.entries.push({id:uid(),n:n.slice(0,40),q:1,p:p,c:c,f:f,m:meal,s:0})});toast("已记录 "+n)}
+  else if(a==="est"){estimate();return}
+  else if(a==="cuopen"){cu.open=true;if(!cu.n)cu.n=cu.q.trim()}
+  else if(a==="custom"){const n=String(cu.n).trim(),g=x=>Math.max(0,parseFloat(x)||0);
+    const p=g(cu.p),c=g(cu.c),f=g(cu.f); if(!n||!(p+c+f)){toast("填上名称和至少一项克数");return}
+    mut(cur,d=>{d.entries.push({id:uid(),n:n.slice(0,40),q:1,p:p,c:c,f:f,m:meal,s:0})});cu=cuBlank();toast("已记录 "+n)}
   else if(a==="water"){mut(cur,d=>{d.water=Math.max(0,Math.min(16,(d.water||0)+ +v))})}
   else if(a==="hz"){hz={id:hz.id===v?null:v,q:1}} else if(a==="hzq"){hz.q=Math.max(0.5,r1(hz.q+ +v))}
   else if(a==="hzclear"){hz={id:null,q:1}}
-  else if(a==="hzadd"){const f=FOODS.find(x=>x.id===hz.id);if(f){addFood(f,hz.q,4);hz={id:null,q:1};toast("已记入今天，按下面的方案吃晚餐")}}
+  else if(a==="hzadd"){const f=FOODS.find(x=>x.id===hz.id);if(f){addFood(f,hz.q,4);hz={id:null,q:1};toast("已记入今天")}}
   else if(a==="lift"||a==="cardio"){mut(cur,d=>{d[a]=!d[a]})}
   else if(a==="copyai"){copyText(aiBrief(),"已复制，粘贴给 AI 即可");return}
   else if(a==="export"){copyText(JSON.stringify(S),"备份已复制");const io=document.getElementById("io");io.value=JSON.stringify(S);return}
@@ -612,6 +642,8 @@ document.addEventListener("click",ev=>{
       S.settings=Object.assign(defaults(),o.settings);S.days=o.days;touch("settings");Object.keys(S.days).forEach(k=>touch(k));toast("已导入")}catch(e){toast("备份内容不完整，请粘贴完整的导出文本");return}}
   render();
 });
+document.addEventListener("input",ev=>{const m=/^cu-([qnpcf])$/.exec(ev.target.id||""); if(m) cu[m[1]]=ev.target.value});
+document.addEventListener("keydown",ev=>{ if(ev.key==="Enter"&&ev.target.id==="cu-q"){ev.preventDefault();estimate()} });
 document.addEventListener("change",ev=>{
   const el=ev.target;
   if(el.dataset.chg){const k=el.dataset.chg;
