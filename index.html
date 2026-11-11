@@ -166,6 +166,14 @@ svg text{font-family:var(--num);font-size:11px;fill:var(--muted)}
 .est{display:flex;flex-direction:column;gap:8px;background:var(--sunk);border-radius:10px;padding:10px}
 .est .field input{background:var(--surface)}
 
+.tl{display:flex;flex-direction:column}
+.tl .m{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);align-items:baseline}
+.tl .m:first-child{border-top:0;padding-top:0}
+.tl .t{font-family:var(--num);font-size:18px;font-weight:700}
+.tl .w b{display:block;font-size:13px;color:var(--muted);font-weight:600}
+.tl .w span{font-size:14.5px;line-height:1.45}
+.tl .pp{font-family:var(--num);font-size:13px;color:var(--pro);font-weight:600;white-space:nowrap}
+
 /* guide */
 details{border-top:1px solid var(--line);padding:10px 0}
 details:first-of-type{border-top:0}
@@ -241,6 +249,31 @@ const FOODS=[
  {id:"ice",cat:"sweet",n:"冰淇淋 1 球",u:"球",d:"",p:2,c:16,f:7},
  {id:"tea",cat:"sweet",n:"奶茶 1 杯",u:"杯",d:"中杯半糖",p:3,c:45,f:8}
 ];
+/* 参考餐单：[时间, 餐次, 标题, [[食物id, 份数, 显示文字]...]] */
+const TPL={
+ A:[["11:30",1,"练后大餐",[["lean",1,"瘦肉 1 掌"],["rice",2,"米饭 2 拳"],["veg",1,"蔬菜两捧"],["oil",2,"油 2 茶匙"]]],
+    ["15:30",2,"第二餐",[["whey",1,"蛋白粉 1 勺"],["milk",1,"全脂牛奶 250ml"],["bag3",1,"法棍 1/3 根"],["fruit",1,"水果 1 拳"]]],
+    ["19:00",3,"收尾",[["salmon",1,"三文鱼 1 掌"],["rice",0.5,"米饭半拳"],["veg",1,"蔬菜两捧"],["oil",1,"油 1 茶匙"]]]],
+ B:[["09:30",1,"练后先接住",[["whey",1,"蛋白粉 1 勺"],["milk",1,"全脂牛奶 250ml"],["bag3",1,"法棍 1/3 根"],["banana",1,"香蕉半根"]]],
+    ["13:00",2,"正餐",[["lean",1,"瘦肉 1 掌"],["rice",1.5,"米饭 1 拳半"],["veg",1,"蔬菜两捧"],["oil",2,"油 2 茶匙"]]],
+    ["16:00",4,"加餐",[["fruit",1,"水果 1 拳"],["nuts",1,"坚果 1 小把"]]],
+    ["19:00",3,"收尾",[["lean",0.5,"瘦肉半掌"],["egg",1,"鸡蛋 1 个"],["rice",0.5,"米饭半拳"],["veg",1,"蔬菜两捧"],["oil",1,"油 1 茶匙"]]]],
+ C:[["11:30",1,"第一餐",[["egg",2,"鸡蛋 2 个"],["whey",1,"蛋白粉 1 勺（水冲）"],["oat",1,"燕麦 40g"],["fruit",1,"水果 1 拳"]]],
+    ["15:00",2,"正餐",[["lean",1,"瘦肉 1 掌"],["rice",1,"米饭 1 拳"],["veg",1,"蔬菜两捧"],["oil",2,"油 2 茶匙"]]],
+    ["19:00",3,"收尾",[["beef",1,"瘦牛肉 1 掌"],["yam",1,"紫薯 1 拳"],["veg",1,"蔬菜两捧"],["fruit",1,"水果 1 拳"],["oil",1,"油 1 茶匙"]]]]
+};
+const FBY={}; FOODS.forEach(f=>{FBY[f.id]=f});
+function tplCard(day){
+  const T={p:0,c:0,f:0};
+  const rows=TPL[day.state].map(m=>{let mp=0; m[3].forEach(it=>{const f=FBY[it[0]];T.p+=f.p*it[1];T.c+=f.c*it[1];T.f+=f.f*it[1];mp+=f.p*it[1]});
+    return `<div class="m"><span class="t">${m[0]}</span><span class="w"><b>${m[2]}</b><span>${m[3].map(it=>it[2]).join(" · ")}</span></span><span class="pp">蛋白 ${r0(mp)}</span></div>`}).join("");
+  const body=`<div class="tl">${rows}</div>
+   <div class="small muted">合计 蛋白 ${r0(T.p)} · 碳水 ${r0(T.c)} · 脂肪 ${r0(T.f)} · ${r0(kcalOf(T))} kcal。同类随便换：瘦肉 ↔ 虾 ↔ 白身鱼；1 拳饭 ↔ 1 拳紫薯；2 拳饭 ≈ 半根法棍。</div>
+   <button class="btn" data-act="tpl">${day.entries.length?"再追加这份餐单":"照这份填入，再按实际增减"}</button>`;
+  return day.entries.length
+    ? `<section class="panel" style="padding-block:4px"><details><summary>参考餐单 · ${STATES[day.state].t}</summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">${body}</div></details></section>`
+    : `<section class="panel"><div class="sec-title"><h2>参考餐单 · ${STATES[day.state].t}</h2><span class="muted small">${STATES[day.state].s}</span></div>${body}</section>`;
+}
 const CATS=[["pro","蛋白质"],["carb","主食"],["veg","蔬果"],["fat","油脂"],["sweet","甜点"]];
 const MEALS=["","第 1 餐 · 破断食","第 2 餐","第 3 餐","加餐 / 练前"];
 const STATES={A:{t:"训练 A",s:"11 点练完 · 16+8"},B:{t:"训练 B",s:"9 点练完 · 14+10"},C:{t:"休息日",s:"少 1 拳主食"}};
@@ -348,7 +381,7 @@ function gauge(name,v,lo,hi,col,unit,floor,isPro){
 }
 function nextHint(day,date,T,t,ws){
   const needP=Math.max(0,(t.p[0]+t.p[1])/2-T.p), roomC=t.c[1]-T.c, roomK=t.k[1]-T.k, roomF=t.f[1]-T.f;
-  if(!day.entries.length) return `<div class="hint">今天还没记录。${day.state==="C"?"休息日把主食控制在 <b>3–4 拳</b>，蛋白照旧。":"练后第一餐吃最大的一份：<b>1 掌瘦肉 + 2 拳主食 + 两捧菜</b>。"}</div>`;
+  if(!day.entries.length) return `<div class="hint">${date>today()?"提前排好这一天：照下面的参考餐单填入，再换成你想吃的。":"今天还没记录。"}${day.state==="C"?"休息日把主食控制在 <b>3–4 拳</b>，蛋白照旧。":"练后第一餐吃最大的一份：<b>1 掌瘦肉 + 2 拳主食 + 两捧菜</b>。"}</div>`;
   if(ws.closed&&T.p<t.pf) return `<div class="hint warn"><b>蛋白质低于底线 ${t.pf}g。</b>底线优先于断食窗口：现在水冲 1 大勺蛋白粉（约 23g），不算破戒。</div>`;
   const parts=[];
   if(needP>8){const palms=half(needP/30)||0.5; parts.push(`蛋白还差约 <b>${r0(needP)}g</b> ≈ <b>${palms} 掌瘦肉</b>${needP<=28?" 或 1 大勺蛋白粉":""}`)}
@@ -376,9 +409,9 @@ function viewToday(){
   const cups=Array.from({length:8},(_,i)=>`<i class="${i<(day.water||0)?"f":""}"></i>`).join("");
   return `
   <header class="top"><button class="icon-btn" data-act="prev" aria-label="前一天">‹</button>
-   <div class="date"><div class="d1">${cur===today()?"今天":cur.slice(5).replace("-","/")} <span style="font-size:15px;font-weight:500">周${WD[parseD(cur).getDay()]}</span></div>
+   <div class="date"><div class="d1">${cur===today()?"今天":cur===addDays(today(),1)?"明天":cur.slice(5).replace("-","/")} <span style="font-size:15px;font-weight:500">周${WD[parseD(cur).getDay()]}</span></div>
    <div class="d2">${dn>=1&&dn<=30?`刷脂第 ${dn} / 30 天`:dn>30?`已完成 30 天周期（第 ${dn} 天）`:"周期尚未开始"} · <span id="sync" class="sync${cloud==="on"?" on":""}">${syncLabel()}</span></div></div>
-   <button class="icon-btn" data-act="next" aria-label="后一天" ${cur>=today()?"disabled":""}>›</button></header>
+   <button class="icon-btn" data-act="next" aria-label="后一天" ${cur>=addDays(today(),7)?"disabled":""}>›</button></header>
   <div class="seg" role="group" aria-label="今日状态">${segs}</div>
   <section class="panel">
    <div class="win"><div class="clock">${ws.w[0]}–${ws.w[1]}</div><div class="grow"><span id="winpill" class="pill ${ws.cls==="open"?"open":""}">${ws.txt}</span></div></div>
@@ -388,6 +421,7 @@ function viewToday(){
    ${gauge("热量",T.k,t.k[0],t.k[1],"kcal","kcal")}
    ${nextHint(day,cur,T,t,ws)}
   </section>
+  ${tplCard(day)}
   <section class="panel">
    <div class="sec-title"><h2>记一口</h2><span class="muted small">点一下 = 1 份，下方可 ±半份</span></div>
    <div class="tabs" role="group" aria-label="记到哪一餐">${mealTabs}</div>
@@ -490,7 +524,7 @@ function viewLog(){
   return `
   <header class="top"><button class="icon-btn" data-act="prev" aria-label="前一天">‹</button>
    <div class="date"><div class="d1">训练与体重</div><div class="d2">${cur===today()?"今天":cur} 周${WD[parseD(cur).getDay()]} · ${STATES[day.state].t}</div></div>
-   <button class="icon-btn" data-act="next" aria-label="后一天" ${cur>=today()?"disabled":""}>›</button></header>
+   <button class="icon-btn" data-act="next" aria-label="后一天" ${cur>=addDays(today(),7)?"disabled":""}>›</button></header>
   <section class="panel">
    <div class="sec-title"><h2>本周训练</h2><span class="num muted">${done} / 4 次</span></div>
    <div class="week">${week}</div>
@@ -555,8 +589,9 @@ function viewGuide(){
     <tr><td>休息日 C</td><td class="n">${s.t.rest.p.join("–")}</td><td class="n">${s.t.rest.c.join("–")}</td><td class="n">${s.t.rest.f.join("–")}</td><td class="n">${s.t.rest.k.join("–")}</td></tr></table></div>
     <p>换成实物：训练日约 <b>3 掌蛋白 + 5 拳主食</b>；休息日约 <b>3 掌蛋白 + 4 拳主食</b>；蔬菜每餐两捧；全天烹调油 3–4 茶匙。脂肪不要长期低于 38g，激素和饱腹感都靠它。</p></details>
    <details><summary>三种状态怎么吃</summary><ul>
-    <li><b>A（11 点练完，16+8）</b>：11:30 练后大餐，放全天一半的碳水（2–2.5 拳或半根法棍）+ 1 掌瘦肉 + 蛋白粉；15:30 第二餐；19:00 前第三餐。</li>
-    <li><b>B（9 点练完，14+10）</b>：9:30 先用蛋白粉 + 1–2 拳主食接住，13:00 正餐，18:30–19:00 收尾。</li>
+    <li><b>A（11 点练完，16+8）</b>：11:30 练后大餐（1 掌瘦肉 + 2 拳主食）；15:30 蛋白粉 + 法棍；19:00 收尾。</li>
+    <li><b>B（9 点练完，14+10）</b>：9:30 蛋白粉 + 法棍先接住；13:00 正餐；16:00 加餐；19:00 收尾。</li>
+    <li>每种状态的具体时间和份量见“今天”页的<b>参考餐单</b>，可一键填入。</li>
     <li><b>C（休息日）</b>：主食少 1 拳，放在白天；蛋白照旧分 3 餐，蔬菜加量；日常多走到 8000 步。</li>
     <li>每餐蛋白 25–40g。单餐多吃不会浪费，但分开吃更饱、更稳。</li>
     <li>空腹练大重量前头晕手抖：半根香蕉或 1 片吐司，记在“加餐/练前”即可。</li></ul></details>
@@ -621,11 +656,12 @@ function copyText(txt,okMsg){const fb=()=>{const io=document.getElementById("io"
 document.addEventListener("click",ev=>{
   const tb=ev.target.closest("[data-tab]"); if(tb){tab=tb.dataset.tab;try{localStorage.setItem(LS+".tab",tab)}catch(e){};render();window.scrollTo(0,0);return}
   const b=ev.target.closest("[data-act]"); if(!b) return; const a=b.dataset.act, v=b.dataset.v;
-  if(a==="prev"){cur=addDays(cur,-1)} else if(a==="next"){if(cur<today())cur=addDays(cur,1)}
+  if(a==="prev"){cur=addDays(cur,-1)} else if(a==="next"){if(cur<addDays(today(),7))cur=addDays(cur,1)}
   else if(a==="state"){mut(cur,d=>{d.state=v})}
   else if(a==="meal"){meal=+v} else if(a==="cat"){cat=v}
   else if(a==="add"){const f=FOODS.find(x=>x.id===v);addFood(f,1,meal);toast("已记录 "+f.n)}
   else if(a==="inc"||a==="dec"){mut(cur,d=>{const e=d.entries.find(x=>x.id===v);if(!e)return;e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)})}
+  else if(a==="tpl"){TPL[dayOf(cur).state].forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1])));toast("已填入，按实际增减")}
   else if(a==="est"){estimate();return}
   else if(a==="cuopen"){cu.open=true;if(!cu.n)cu.n=cu.q.trim()}
   else if(a==="custom"){const n=String(cu.n).trim(),g=x=>Math.max(0,parseFloat(x)||0);
