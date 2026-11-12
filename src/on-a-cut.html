@@ -103,6 +103,30 @@ h3{font-size:14px}
 .tabs button{flex:none;border:1px solid var(--line);background:transparent;border-radius:99px;padding:6px 12px;min-height:36px;color:var(--muted);font-size:13.5px}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 
+/* search results + my foods */
+#sr,#catarea{display:flex;flex-direction:column;gap:12px}
+.sr-list{display:flex;flex-direction:column}
+.sr-i{padding:9px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px;min-width:0}
+.sr-i:first-child{border-top:0;padding-top:0}
+.sr-h{display:flex;align-items:center;gap:8px;min-width:0}
+.sr-h .n{flex:1;min-width:0;font-weight:600;overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:11px;font-weight:600;color:var(--muted);background:var(--sunk);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.star{flex:none;width:38px;height:38px;border:0;background:none;font-size:21px;line-height:1;color:var(--muted);border-radius:8px;padding:0}
+.star[aria-pressed="true"]{color:var(--carb)}
+.ps{display:flex;flex-wrap:wrap;gap:6px}
+.pbtn{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;min-height:38px;font-size:13.5px;text-align:left;max-width:100%;overflow-wrap:anywhere}
+.pbtn:active{background:var(--accent-soft)}
+.sr-tail{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.more{display:flex;flex-wrap:wrap;align-items:center;gap:0 6px}
+.chip .n{overflow-wrap:anywhere}
+.chip .acts{display:flex;gap:14px}
+.frow{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);min-width:0}
+.frow:first-child{border-top:0}
+.fmain{flex:1;min-width:0;border:0;background:none;text-align:left;padding:8px 0;display:flex;flex-direction:column;gap:1px;min-height:48px}
+.fmain b{font-size:14px;overflow-wrap:anywhere}
+.fmain span{font-family:var(--num);font-size:12.5px;color:var(--muted)}
+.cdrow .e-n{overflow-wrap:anywhere}
+
 /* log */
 .meal-h{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:4px}
 .meal-h b{color:var(--ink)}
@@ -113,6 +137,13 @@ h3{font-size:14px}
 .step{display:flex;align-items:center;gap:2px;flex:none}
 .step button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:16px;line-height:1}
 .step .q{font-family:var(--num);font-weight:600;min-width:2.2em;text-align:center}
+.step button.q{width:auto;min-width:2.6em;border:0;background:none;padding:0 4px;text-decoration:underline dotted;text-underline-offset:4px}
+.qin{width:64px;min-height:34px;padding:4px 6px;text-align:center;font-family:var(--num);font-size:16px;font-weight:600;border:1px solid var(--accent);border-radius:8px;background:var(--bg);color:var(--ink)}
+.tbtn{border:0;background:none;padding:2px 4px;min-height:26px;color:var(--ink);font-family:var(--num);font-weight:600}
+.tin{font-size:16px;padding:2px 6px;border:1px solid var(--accent);border-radius:8px;background:var(--bg);color:var(--ink);max-width:9em}
+.cbrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0}
+.cbrow .inp{flex:1 1 8em;width:auto}
+.cbnew{text-align:right}
 .empty{color:var(--muted);font-size:14px;text-align:center;padding:10px 0}
 
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;min-height:42px;font-weight:600}
@@ -190,7 +221,7 @@ nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(
 nav button{border:0;background:transparent;border-radius:10px;min-height:48px;color:var(--muted);font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:99px;font-size:13.5px;z-index:30;max-width:90vw;display:flex;align-items:center;gap:12px;white-space:nowrap}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:99px;font-size:13.5px;z-index:50;max-width:90vw;display:flex;align-items:center;gap:12px;white-space:nowrap}
 #toast span{overflow:hidden;text-overflow:ellipsis}
 #toast button{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:0 2px;min-height:28px;flex:none}
 
@@ -244,17 +275,19 @@ body.lock{overflow:hidden}
 "use strict";
 /* 计算引擎在 src/engine.js，构建时内联到上面的占位符处 */
 const E=window.OnACutEngine;
-const {r0,r1,half,mid,z,ymd,parseD,addDays,diffDays,kcalOf,clone,FOODS,FBY,CATS,MEALS,MODES,compute,pfError,planFor,totals,mealNote,mins,buildTpl,dayOk,advise}=E;
+const {r0,r1,half,mid,z,ymd,parseD,addDays,diffDays,kcalOf,clone,FOODS,FBY,CATS,MEALS,MODES,compute,pfError,planFor,totals,mealNote,mins,hm,buildTpl,dayOk,advise}=E;
 /* ---------- helpers ---------- */
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const today=()=>ymd(new Date());
 const WD=["日","一","二","三","四","五","六"];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const GROUPS=(window.OnACutFoods&&window.OnACutFoods.GROUPS)||[];
+const CAT_IDS=CATS.map(c=>c[0]), catName=id=>(CATS.find(c=>c[0]===id)||["",""])[1];
 
 
 /* ---------- state + storage ---------- */
 const LS="onacut.v1";
-function defaults(){return {v:2,updatedAt:0,start:today(),weight0:0,plan:planFor(4),my:[],fast:true,states:null,profile:null,
+function defaults(){return {v:2,updatedAt:0,start:today(),weight0:0,plan:planFor(4),my:[],fav:[],combos:[],fast:true,states:null,profile:null,
   win:{A:["11:30","19:30"],B:["09:30","19:30"],C:["11:30","19:30"]},
   t:{train:{p:[100,110],pf:85,c:[165,180],f:[42,48],k:[1500,1600]},rest:{p:[100,110],pf:85,c:[125,140],f:[42,48],k:[1350,1450]}}}}
 let S={settings:defaults(),days:{}};
@@ -262,6 +295,11 @@ function migrate(){const s=S.settings;
   if(!s.profile&&(s.updatedAt>0||Object.keys(S.days).length)){ // 旧版本数据：保留原有手动目标和三种状态
     s.profile={sex:"",age:"",h:163.5,w:s.weight0||63.5,goal:"",n:4,mode:"cut1",custom:true,done:true}; if(!s.states) s.states=["A","B","C"]; if(!s.weight0) s.weight0=63.5 }
   if(!Array.isArray(s.states)) s.states=["A","C"]; if(!Array.isArray(s.my)) s.my=[]; if(s.fast==null) s.fast=true;
+  if(!Array.isArray(s.fav)) s.fav=[];
+  s.combos=Array.isArray(s.combos)?s.combos.filter(c=>c&&Array.isArray(c.items)):[];
+  // v8：旧“常吃”并入我的食物库。没有合法分类的项按营养猜分类，并保持收藏；迁移过的项不会再处理
+  s.my.forEach(f=>{ if(!CAT_IDS.includes(f.cat)){ f.cat=E.guessCat(f); f.s=f.cat==="sweet"?1:0; s.fav.push(f.id) } });
+  s.fav=s.fav.filter((id,i)=>s.fav.indexOf(id)===i);
 }
 function adopt(o){S.settings=Object.assign(defaults(),o.settings);S.days=o.days||{};migrate()}
 try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);if(o&&o.settings)adopt(o)}}catch(e){}
@@ -314,8 +352,9 @@ async function initCloud(){
 }
 
 /* ---------- domain ---------- */
-let cur=today(), lastToday=today(), tab=lsGet("tab")||"today", cat="pro", meal=1, hz={id:null,q:1}, myEdit=false;
-const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",k:"",note:"",s:false,open:false,busy:false});
+let cur=today(), lastToday=today(), tab=lsGet("tab")||"today", cat=null, meal=1, hz={id:null,q:1}, favEdit=false;
+let recentCache=[], recentCnt={}, qEdit=null, tEdit=null, cbDraft=null, cdr=null, fq="", fe=null;
+const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",k:"",note:"",cat:"",fav:false,open:false,busy:false,err:""});
 let cu=cuBlank();
 const multi=()=>S.settings.states.includes("B");
 const normState=k=>S.settings.states.includes(k)?k:(k==="C"?"C":"A");
@@ -347,6 +386,8 @@ function mealsLeft(day,date){ if(date!==today()) return 99;
   let c=0; for(let m=from;m<=3;m++) if(!day.entries.some(e=>e.m===m)) c++; return Math.max(1,c)}
 const kOnlyE=e=>e.k!=null&&4*e.p+4*e.c+9*e.f<0.6*e.k;   // 只填了热量、没填克数
 const kOnly=day=>day.entries.some(kOnlyE);
+const nowMin=()=>{const n=new Date();return n.getHours()*60+n.getMinutes()};
+const ORD={1:0,2:1,4:2,3:3};   // 餐次的时间顺序：1 → 2 → 加餐 → 3
 function autoMeal(){const tm=mealTimes(stOf(dayOf(today()))),n=new Date(),now=n.getHours()*60+n.getMinutes();
   return now>=tm[3]-45?3:now>=tm[2]-30?4:now>=tm[1]-45?2:1}
 
@@ -405,23 +446,75 @@ function tplCard(day){
     : `<section class="panel"><div class="sec-title"><h2>参考餐单 · ${stInfo(st).t}</h2><span class="muted small">按你的目标自动配份量</span></div>${body}
        <button class="btn" data-act="tpl">照这份填入，再按实际增减</button></section>`;
 }
+/* ---------- 记一口：最近 / 常吃 / 分类 / 搜索 ---------- */
+function refreshRecent(){const td=today(); recentCache=E.recentFoods(S.days,td,8); recentCnt={};
+  for(let i=1;i<=14;i++){const d=S.days[addDays(td,-i)]; if(d&&d.entries) d.entries.forEach(e=>{ if(e.fid) recentCnt[e.fid]=(recentCnt[e.fid]||0)+1 })}}
+const favFood=id=>FBY[id]||S.settings.my.find(x=>x.id===id);
+const favFoods=()=>S.settings.fav.map(favFood).filter(Boolean);
+function catTabsList(){const l=[]; if(recentCache.length) l.push(["recent","最近"]);
+  if(favFoods().length||S.settings.combos.length) l.push(["fav","常吃"]); return l.concat(CATS)}
+const comboK=c=>r0(c.items.reduce((a,it)=>a+kcalOf(it)*(parseFloat(it.q)||0),0));
+const comboP=c=>r0(c.items.reduce((a,it)=>a+(+it.p||0)*(parseFloat(it.q)||0),0));
+const chipSub=f=>`${r0(kcalOf(f))} kcal · 蛋白 ${r1(f.p)}`;
+function catChips(c){const s=S.settings, full='style="grid-column:1/-1"'; let h="";
+  if(c==="recent") h=recentCache.map(f=>`<button class="chip" data-act="add" data-v="${esc(f.id)}"><span class="n">${esc(f.n)}</span><span class="m">${chipSub(f)}</span></button>`).join("");
+  else if(c==="fav"){
+    h=s.combos.map(cb=>favEdit
+        ?`<div class="chip del"><span class="n">${esc(cb.n)}</span><span class="acts"><button class="link" data-act="cbdel" data-v="${cb.id}" aria-label="删除组合 ${esc(cb.n)}">✕ 删除</button><button class="link" data-act="cbedit" data-v="${cb.id}" aria-label="编辑组合 ${esc(cb.n)}">✎ 编辑</button></span></div>`
+        :`<button class="chip" data-act="cbadd" data-v="${cb.id}"><span class="n">${esc(cb.n)}</span><span class="m">${cb.items.length} 样 · ${comboK(cb)} kcal</span></button>`).join("")
+     +favFoods().map(f=>`<button class="chip${favEdit?" del":""}" data-act="${favEdit?"unfav":"add"}" data-v="${esc(f.id)}"><span class="n">${favEdit?"✕ ":""}${esc(f.n)}</span><span class="m">${chipSub(f)}</span></button>`).join("")
+     +`<button class="link" data-act="favedit" ${full}>${favEdit?"完成":"整理常吃"}</button>`}
+  else h=FOODS.filter(f=>f.cat===c&&f.top).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
+     +s.my.filter(f=>f.cat===c).slice(0,12).map(f=>`<button class="chip" data-act="add" data-v="${esc(f.id)}"><span class="n">${esc(f.n)}<span class="tag">我的</span></span><span class="m">${chipSub(f)}</span></button>`).join("");
+  if(!s.combos.length&&(c==="recent"||c==="fav")) h+=`<div class="muted small" ${full}>常吃的一餐记一次后，点这一餐下面的“存为组合”，以后一键记入。</div>`;
+  return h}
+function catHTML(){
+  const tabsL=catTabsList(); if(cat&&!tabsL.some(c=>c[0]===cat)) cat=null;
+  const ccat=cat||(recentCache.length?"recent":"pro"); if(ccat!=="fav") favEdit=false;
+  return `<div class="tabs" role="group" aria-label="食物类别">${tabsL.map(c=>`<button data-act="cat" data-v="${c[0]}" aria-pressed="${ccat===c[0]}">${c[1]}</button>`).join("")}</div>
+    <div class="chips">${catChips(ccat)}</div>
+    <div class="muted small more"><span>更多食物请在上方搜索 ·</span><button class="link" data-act="cuopen">手动填</button>${S.settings.my.length?`<span>·</span><button class="link" data-act="foods">管理我的食物（${S.settings.my.length}）</button>`:""}</div>`}
+const searchNow=()=>{const s=S.settings;return E.searchFoods(cu.q,{my:s.my,fav:s.fav,recent:recentCnt,limit:8})};
+function srHTML(){const q=cu.q.trim(); if(!q) return "";
+  const s=S.settings, rs=searchNow();
+  const pb=(id,l,f)=>`<button class="pbtn" data-act="add" data-v="${esc(id)}">${esc(l)} · <span class="num">${r0(kcalOf(f))} kcal</span></button>`;
+  const tail=`<div class="sr-tail">${rs.length?'<span class="muted small">都不是？</span>':""}${sampleFn?`<button class="btn" data-act="est" ${cu.busy?"disabled":""}>${cu.busy?"估算中…":"AI 估算"}</button>`:""}<button class="btn" data-act="cuopen">手动填</button></div>`;
+  if(!rs.length) return `<div class="empty">没找到「${esc(q)}」</div>`+tail;
+  return `<div class="sr-list">`+rs.map(x=>{const f=x.food, b=!!f.base, name=b?f.base.n:f.n, on=s.fav.includes(f.id);
+    const g=b?(GROUPS.find(y=>y[0]===f.g)||["",""])[1]:"我的";
+    const ps=b?E.portionsOf(f.id).slice(0,4).map((p,i)=>pb(p.id,f.base.u[i].l,p)).join(""):pb(f.id,"1 份",f);
+    return `<div class="sr-i"><div class="sr-h"><span class="n">${esc(name)}${g?`<span class="tag">${esc(g)}</span>`:""}</span><button class="star" data-act="fav" data-v="${esc(f.id)}" aria-pressed="${on}" aria-label="${on?"取消收藏":"收藏到常吃"} ${esc(name)}">${on?"★":"☆"}</button></div><div class="ps">${ps}</div></div>`}).join("")+`</div>`+tail}
+/* 只重画搜索结果，不整页重绘（否则输入框每打一个字都会失焦） */
+function renderSR(){const sr=document.getElementById("sr"), ca=document.getElementById("catarea"); if(!sr) return;
+  const q=cu.q.trim(); sr.innerHTML=srHTML(); sr.hidden=cu.open||!q;
+  if(ca){const show=!cu.open&&!q; if(show&&ca.hidden) ca.innerHTML=catHTML(); ca.hidden=!show}}   // 搜索中可能改过收藏，回到分类区时重画
+function toggleFav(id){const s=S.settings;
+  if(s.fav.includes(id)){s.fav=s.fav.filter(x=>x!==id);touch("settings");toast("已取消收藏")}
+  else{s.fav.unshift(id);touch("settings");toast("已加入常吃")}}
+/* 我的食物库上限 300：从最旧的往前找第一个没收藏的删掉；全收藏了就删最旧的。刚加的第 0 项不删 */
+function capMy(){const s=S.settings; while(s.my.length>300){let i=s.my.length-1; while(i>0&&s.fav.includes(s.my[i].id)) i--; if(i<=0) i=s.my.length-1;
+  const x=s.my.splice(i,1)[0]; s.fav=s.fav.filter(id=>id!==x.id)}}
+function openManual(){cu.open=true;cu.n=cu.q.trim().slice(0,40);cu.err="";render()}
 function viewToday(){
   const day=dayOf(cur), st=stOf(day), t=targets(st), T=totals(day), ws=winStatus(st,cur);
   const dn=diffDays(cur,S.settings.start)+1, left=mid(t.k)-T.k;
   const segs=S.settings.states.map(k=>{const i=stInfo(k);return `<button data-act="state" data-v="${k}" aria-pressed="${st===k}"><b>${i.t}</b><span>${i.s}</span></button>`}).join("");
   const mealTabs=[1,2,3,4].map(i=>`<button data-act="meal" data-v="${i}" aria-pressed="${meal===i}">${MEALS[i]}</button>`).join("");
-  const my=S.settings.my; if(cat==="my"&&!my.length){cat="pro";myEdit=false}
-  const catTabs=(my.length?[["my","常吃"]]:[]).concat(CATS).map(c=>`<button data-act="cat" data-v="${c[0]}" aria-pressed="${cat===c[0]}">${c[1]}</button>`).join("");
-  const chips=cat==="my"
-   ? my.map(f=>`<button class="chip${myEdit?" del":""}" data-act="${myEdit?"mydel":"add"}" data-v="${f.id}"><span class="n">${myEdit?"✕ ":""}${esc(f.n)}</span><span class="m">${r0(kcalOf(f))} kcal · 蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
-     +`<button class="link" data-act="myedit" style="grid-column:1/-1">${myEdit?"完成":"整理常吃（删除不再吃的）"}</button>`
-   : FOODS.filter(f=>f.cat===cat&&f.top).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
-     +`<div class="muted small" style="grid-column:1/-1">更多食物下一版可搜索</div>`;
+  refreshRecent();
+  const q0=cu.q.trim(), showSR=!cu.open&&!!q0, showCat=!cu.open&&!q0;
   let log="";
   [1,2,3,4].forEach(i=>{const es=day.entries.filter(e=>e.m===i); if(!es.length) return; const mt=totals(day,i), note=mealNote(st,i,mt,es);
-    log+=`<div class="meal-h"><span><b>${MEALS[i]}</b></span><span class="num">蛋白 ${r0(mt.p)}g · ${r0(mt.k)} kcal</span></div><div class="mnote ${note[0]}">${note[1]}</div>`+
+    const ts=es.filter(e=>e.t!=null).map(e=>e.t), t0=ts.length?Math.min.apply(null,ts):null;
+    const tb=tEdit===i?`<input type="time" id="mt-in" class="tin" value="${t0!=null?hm(t0):""}" aria-label="${MEALS[i]}的进食时间">`
+      :`<button class="tbtn" data-act="mtime" data-v="${i}" aria-label="修改${MEALS[i]}的进食时间">${t0!=null?hm(t0):'<span class="muted small">＋时间</span>'}</button>`;
+    log+=`<div class="meal-h"><span><b>${MEALS[i]}</b> · ${tb}</span><span class="num">蛋白 ${r0(mt.p)}g · ${r0(mt.k)} kcal</span></div><div class="mnote ${note[0]}">${note[1]}</div>`+
      es.map(e=>`<div class="entry"><div class="e-n"><div>${esc(e.n)}</div><div class="m">蛋白 ${r1(e.p*e.q)} · 碳水 ${r1(e.c*e.q)} · 脂肪 ${r1(e.f*e.q)} · ${r0(kcalOf(e)*e.q)} kcal</div></div>
-      <div class="step"><button data-act="dec" data-v="${e.id}" aria-label="减半份">−</button><span class="q">×${e.q}</span><button data-act="inc" data-v="${e.id}" aria-label="加半份">+</button></div></div>`).join("")});
+      <div class="step"><button data-act="dec" data-v="${e.id}" aria-label="减半份">−</button>${qEdit===e.id
+        ?`<input class="qin" id="q-in" type="number" step="0.1" min="0.1" max="20" inputmode="decimal" value="${e.q}" aria-label="份量倍数">`
+        :`<button class="q" data-act="qedit" data-v="${e.id}" aria-label="输入份量倍数，当前 ${e.q}">×${e.q}</button>`}<button data-act="inc" data-v="${e.id}" aria-label="加半份">+</button></div></div>`).join("")+
+     (es.length<2?"":cbDraft&&cbDraft.m===i
+       ?`<div class="cbrow"><input class="inp" id="cb-n" maxlength="20" value="${esc(cbDraft.n)}" aria-label="组合名称" placeholder="组合名称"><button class="btn primary" data-act="cbsave">保存</button><button class="btn" data-act="cbcancel">取消</button></div>`
+       :`<div class="cbnew"><button class="link" data-act="cbnew" data-v="${i}">存为组合</button></div>`)});
   const yd=S.days[addDays(cur,-1)], canCopy=yd&&yd.entries&&yd.entries.length;
   const cups=Array.from({length:8},(_,i)=>`<i class="${i<(day.water||0)?"f":""}"></i>`).join("");
   return `
@@ -440,16 +533,19 @@ function viewToday(){
   <section class="panel">
    <div class="sec-title"><h2>记一口</h2><span class="muted small">点一下 = 1 份</span></div>
    <div class="tabs" role="group" aria-label="记到哪一餐">${mealTabs}</div>
-   <div class="tabs" role="group" aria-label="食物类别">${catTabs}</div>
-   <div class="chips">${chips}</div>
-   <div class="row"><input class="inp grow" id="cu-q" placeholder="或直接描述：一个手掌大的章鱼" value="${esc(cu.q)}" aria-label="描述吃了什么" enterkeyhint="go"><button class="btn primary" data-act="est" ${cu.busy?"disabled":""}>${cu.busy?"估算中…":"估算"}</button></div>
+   <input class="inp" id="cu-q" placeholder="搜食物：米饭 / jxr / 黄焖鸡" value="${esc(cu.q)}" aria-label="搜索食物" enterkeyhint="search" autocomplete="off">
+   <div id="sr" ${showSR?"":"hidden"}>${srHTML()}</div>
+   <div id="catarea" ${showCat?"":"hidden"}>
+${catHTML()}</div>
    ${cu.open?`<div class="est">
-     <label class="field">名称<input id="cu-n" value="${esc(cu.n)}"></label>
+     <label class="field">名称<input id="cu-n" maxlength="40" value="${esc(cu.n)}"></label>
+     <div><div class="lab">分类</div><div class="seg slim" role="group" aria-label="分类">${CATS.map(c=>`<button data-act="cucat" data-v="${c[0]}" aria-pressed="${cu.cat===c[0]}">${c[1]}</button>`).join("")}</div></div>
      <div class="grid4"><label class="field">蛋白 g<input id="cu-p" type="number" inputmode="decimal" min="0" value="${esc(cu.p)}"></label><label class="field">碳水 g<input id="cu-c" type="number" inputmode="decimal" min="0" value="${esc(cu.c)}"></label><label class="field">脂肪 g<input id="cu-f" type="number" inputmode="decimal" min="0" value="${esc(cu.f)}"></label><label class="field">热量 kcal<input id="cu-k" type="number" inputmode="numeric" min="0" value="${esc(cu.k)}" placeholder="${cuAuto()}"></label></div>
-     <label class="check"><input type="checkbox" id="cu-s" ${cu.s?"checked":""}> 算甜点（对冲页可选）</label>
-     <div class="small muted">${cu.note?esc(cu.note)+" ":""}零食可以只填包装上的热量；热量留空则按三项克数自动算。</div>
-     <button class="btn primary" data-act="custom">记录，并存入“常吃”</button>
-    </div>`:`<button class="link" data-act="cuopen">不估算，手动填克数或热量</button>`}
+     <label class="check"><input type="checkbox" id="cu-fav" ${cu.fav?"checked":""}> 加入常吃</label>
+     <div class="small muted">${cu.note?esc(cu.note)+" ":""}零食可以只填包装上的热量；热量留空则按三项克数自动算。记录后自动存入“我的食物”。</div>
+     <div class="err" role="alert">${esc(cu.err)}</div>
+     <div class="row"><button class="btn primary grow" data-act="custom">记录</button><button class="btn" data-act="cuclose">取消</button></div>
+    </div>`:""}
   </section>
   <section class="panel">
    <div class="sec-title"><h2>${dayLabel()}的记录</h2><span class="row" style="gap:12px;flex-wrap:nowrap"><span class="num muted">${r0(T.k)} kcal</span>${day.entries.length?'<button class="link" data-act="clear" aria-label="清空这一天的饮食记录">清空</button>':""}</span></div>
@@ -466,7 +562,7 @@ function viewHedge(){
   const day=dayOf(cur), sel=hz.id?findFood(hz.id):null, t=targets(stOf(day)), T=totals(day);
   if(sel){T.p+=sel.p*hz.q;T.c+=sel.c*hz.q;T.f+=sel.f*hz.q;T.k+=kcalOf(sel)*hz.q}
   const show=sel||day.entries.some(e=>e.s);
-  const opts=FOODS.filter(f=>f.cat==="sweet").concat(S.settings.my.filter(f=>f.s));
+  const opts=FOODS.filter(f=>f.cat==="sweet").concat(S.settings.my.filter(f=>f.cat==="sweet"));
   const chips=opts.map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${esc(f.base?f.base.n:f.n)}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
   let res='<div class="empty">点一款甜点，马上看到今晚怎么吃。</div>';
   if(show){const a=advise({T,t,mealsLeft:1,windowClosed:false,kOnly:kOnly(day)||(!!sel&&kOnlyE(sel))});
@@ -635,11 +731,36 @@ function viewGuide(){
 /* ---------- sheet: onboarding + profile ---------- */
 let sheet=null, dr=null, step=0, armed=false, armedU=false, rsWarn="", shErr="";
 const RESTORE_ARMED="再点一次确认：覆盖当前全部数据", UNRESTORE_ARMED="再点一次确认：回到恢复前的数据";
-function openSheet(kind){const s=S.settings; sheet=kind; step=0; armed=false; armedU=false; rsWarn=""; shErr="";
-  dr=clone({pf:s.profile||{sex:"",age:"",h:"",w:"",goal:"",n:3,mode:"cut1",custom:false,done:false},fast:!!s.fast,win:s.win,plan:s.plan,t:s.t,fsel:"none"});
+function openSheet(kind,arg){const s=S.settings; step=0; armed=false; armedU=false; rsWarn=""; shErr="";
+  if(kind==="combo"){const c=s.combos.find(x=>x.id===arg); if(!c) return; cdr=clone(c)}
+  else if(kind==="foods"){fq="";fe=null}
+  sheet=kind;
+  if(kind==="onb"||kind==="prof") dr=clone({pf:s.profile||{sex:"",age:"",h:"",w:"",goal:"",n:3,mode:"cut1",custom:false,done:false},fast:!!s.fast,win:s.win,plan:s.plan,t:s.t,fsel:"none"});
   if(kind==="onb") dr.plan=planFor(+dr.pf.n);
   document.body.classList.add("lock"); renderSheet()}
-function closeSheet(){sheet=null;dr=null;document.body.classList.remove("lock");const el=document.getElementById("sheet");el.hidden=true;el.innerHTML=""}
+function closeSheet(){const k=sheet;sheet=null;dr=null;cdr=null;fe=null;document.body.classList.remove("lock");const el=document.getElementById("sheet");el.hidden=true;el.innerHTML="";
+  if(k==="combo"||k==="foods") render()}
+/* 组合抽屉 */
+const cdSum=()=>`合计 ${comboK(cdr)} kcal · 蛋白 ${comboP(cdr)}g`;
+function comboBody(){return `
+  <label class="field">组合名称<input id="cd-n" maxlength="20" value="${esc(cdr.n)}"></label>
+  <section class="panel" style="gap:4px">${cdr.items.map((it,i)=>`<div class="entry cdrow"><div class="e-n"><div>${esc(it.n)}</div></div>
+    <div class="step"><button data-act="cdq" data-v="${i}" data-d="-0.5" aria-label="减半份">−</button><input class="qin" data-cdq="${i}" type="number" step="0.1" min="0.1" max="20" inputmode="decimal" value="${esc(it.q)}" aria-label="${esc(it.n)} 的份量倍数"><button data-act="cdq" data-v="${i}" data-d="0.5" aria-label="加半份">+</button><button data-act="cddel" data-v="${i}" aria-label="从组合里删掉 ${esc(it.n)}">✕</button></div></div>`).join("")||'<div class="empty">组合里已经没有食物了。</div>'}
+   <div class="small muted" id="cd-sum">${cdSum()}</div></section>`}
+/* 我的食物抽屉 */
+const fkc=f=>`${catName(f.cat)} · ${r0(kcalOf(f))} kcal`;
+function flHTML(){const q=fq.trim().toLowerCase(), list=S.settings.my.filter(f=>!q||String(f.n).toLowerCase().includes(q));
+  if(!list.length) return `<div class="empty">${S.settings.my.length?"没有匹配的食物。":"还没有自己的食物。搜不到的食物手动填一次，就会存在这里。"}</div>`;
+  const num=(k,l,a)=>`<label class="field">${l}<input data-fe="${k}" type="number" ${a} min="0" value="${esc(fe[k])}"></label>`;
+  return list.map(f=>{const on=S.settings.fav.includes(f.id), open=fe&&fe.id===f.id;
+    return `<div class="frow"><button class="fmain" data-act="fesel" data-v="${esc(f.id)}" aria-expanded="${!!open}"><b>${esc(f.n)}</b><span>${fkc(f)}</span></button>
+      <button class="star" data-act="fav" data-v="${esc(f.id)}" aria-pressed="${on}" aria-label="${on?"取消收藏":"收藏到常吃"} ${esc(f.n)}">${on?"★":"☆"}</button></div>`
+     +(open?`<div class="est" style="margin-bottom:8px">
+       <label class="field">名称<input data-fe="n" maxlength="40" value="${esc(fe.n)}"></label>
+       <div><div class="lab">分类</div><div class="seg slim" role="group" aria-label="分类">${CATS.map(c=>`<button data-act="fecat" data-v="${c[0]}" aria-pressed="${fe.cat===c[0]}">${c[1]}</button>`).join("")}</div></div>
+       <div class="grid4">${num("p","蛋白 g",'inputmode="decimal"')}${num("c","碳水 g",'inputmode="decimal"')}${num("f","脂肪 g",'inputmode="decimal"')}${num("k","热量 kcal",'inputmode="numeric" placeholder="自动"')}</div>
+       <div class="err" role="alert">${esc(fe.err)}</div>
+       <div class="row"><button class="btn primary grow" data-act="fesave">保存</button><button class="btn" data-act="fedel">删除</button></div></div>`:"")}).join("")}
 function setPath(path,val){const ks=path.split("."); let o=dr; for(let i=0;i<ks.length-1;i++) o=o[ks[i]];
   const k=ks[ks.length-1]; o[k]=(ks[0]==="t")?(parseFloat(val)>0?r0(parseFloat(val)):o[k]):val}
 const inp=(path,label,attrs,val)=>`<label class="field">${label}<input id="dr-${path.replace(/\./g,"-")}" data-dr="${path}" ${attrs} value="${esc(val??"")}"></label>`;
@@ -666,8 +787,17 @@ function trainFields(){const n=+dr.pf.n||0;return `<div class="row"><div class="
   <div class="step"><button data-act="drset" data-k="pf.n" data-v="${Math.max(0,n-1)}" aria-label="减一次">−</button><span class="q" style="font-size:20px">${n} 次</span><button data-act="drset" data-k="pf.n" data-v="${Math.min(7,n+1)}" aria-label="加一次">+</button></div></div>`}
 function renderSheet(){
   const el=document.getElementById("sheet"); if(!sheet){el.hidden=true;return}
-  const pf=dr.pf; let title,body,foot;
-  if(sheet==="onb"){
+  let title,body,foot,label; const X='<button class="icon-btn" data-act="shclose" aria-label="关闭">✕</button>';
+  const ob=el.querySelector(".sh-b"), keep=ob&&el.dataset.kind===sheet&&(sheet==="combo"||sheet==="foods")?ob.scrollTop:0;
+  if(sheet==="combo"){ label="编辑组合";
+    title=`<h2 class="grow" style="font-size:20px">编辑组合</h2>${X}`; body=comboBody();
+    foot='<button class="btn primary grow" data-act="cbsheetsave">保存</button><button class="btn" data-act="cbsheetdel">删除组合</button>';
+  } else if(sheet==="foods"){ label="我的食物";
+    title=`<h2 class="grow" style="font-size:20px">我的食物（${S.settings.my.length}）</h2>${X}`;
+    body=`<input class="inp" id="fq" placeholder="按名称过滤" value="${esc(fq)}" aria-label="按名称过滤" autocomplete="off">
+     <div class="small muted">手动填或 AI 估算过的食物都存在这里，修改立即生效。点名称可以编辑，☆ 收藏到“常吃”。</div>
+     <section class="panel" style="gap:0;padding-block:6px" id="fl">${flHTML()}</section>`; foot="";
+  } else if(sheet==="onb"){ const pf=dr.pf; label="首次设置";
     const steps=["先认识一下你","体重和目标","生活节奏","你的每日目标"];
     title=`<div class="grow"><div class="dots">${steps.map((_,i)=>`<i class="${i<=step?"on":""}"></i>`).join("")}</div><h2 style="font-size:20px;margin-top:10px">${steps[step]}</h2></div>`;
     if(step===0) body=`<p class="muted" style="margin:0">填 4 项数据，约 1 分钟。数据只保存在你自己的设备上。</p>${bodyFields()}`;
@@ -679,8 +809,8 @@ function renderSheet(){
        <div class="small muted" style="margin-top:6px">时间之后可以改。断食不是必须的，总热量才决定结果。</div></div>`;
     else body=prevHTML()+`<div class="hint">接下来每天按“掌、拳、勺”点一下就能记录。体重变了或想微调数字，点右上角的人像图标。</div>`;
     foot=(step>0?'<button class="btn" data-act="obprev">上一步</button>':"")+`<button class="btn primary grow" data-act="obnext">${step===3?"开始使用":"下一步"}</button>`;
-  } else {
-    title=`<h2 class="grow" style="font-size:20px">身体档案与设置</h2><button class="icon-btn" data-act="shclose" aria-label="关闭">✕</button>`;
+  } else { const pf=dr.pf; label="身体档案与设置";
+    title=`<h2 class="grow" style="font-size:20px">身体档案与设置</h2>${X}`;
     const tin=(g,k,i,l)=>inp(`t.${g}.${k}.${i}`,l,'type="number" inputmode="numeric"',dr.t[g][k][i]);
     const trow=(g,label)=>`<h3>${label}</h3><div class="grid4">${tin(g,"p",0,"蛋白下限")}${tin(g,"p",1,"蛋白上限")}${tin(g,"c",0,"碳水下限")}${tin(g,"c",1,"碳水上限")}${tin(g,"f",0,"脂肪下限")}${tin(g,"f",1,"脂肪上限")}${tin(g,"k",0,"热量下限")}${tin(g,"k",1,"热量上限")}</div>`;
     const sts=S.settings.states, winRow=k=>`<div class="grid2">${inp(`win.${k}.0`,stInfo(k).t+" 开始",'type="time"',dr.win[k][0])}${inp(`win.${k}.1`,"结束",'type="time"',dr.win[k][1])}</div>`;
@@ -705,8 +835,8 @@ function renderSheet(){
      </section>`;
     foot='<button class="btn primary grow" data-act="shsave">保存</button>';
   }
-  el.innerHTML=`<div class="sh" role="dialog" aria-modal="true" aria-label="${sheet==="onb"?"首次设置":"身体档案与设置"}"><div class="sh-h">${title}</div><div class="sh-b">${body}<div class="err" id="sh-err" role="alert">${esc(shErr)}</div></div><div class="sh-f">${foot}</div></div>`;
-  el.hidden=false;
+  el.innerHTML=`<div class="sh" role="dialog" aria-modal="true" aria-label="${label}"><div class="sh-h">${title}</div><div class="sh-b"${foot?"":' style="padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))"'}>${body}<div class="err" id="sh-err" role="alert">${esc(shErr)}</div></div>${foot?`<div class="sh-f">${foot}</div>`:""}</div>`;
+  el.dataset.kind=sheet; el.hidden=false; if(keep) el.querySelector(".sh-b").scrollTop=keep;
 }
 function applyDraft(first){
   const s=S.settings, pf=dr.pf; ["age","h","w","goal","n"].forEach(k=>{pf[k]=pf[k]===""||pf[k]==null?"":+pf[k]}); pf.done=true;
@@ -724,6 +854,7 @@ const NAV=[["today","今天",'<path d="M4 11h16M6 11a6 6 0 0 0 12 0M12 5v2M8 4.5
  ["guide","准则",'<path d="M6 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V4zM6 16h12M9.5 8h5M9.5 11.5h5"/>']];
 function render(){
   document.getElementById("app").innerHTML=tab==="today"?viewToday():tab==="hedge"?viewHedge():tab==="log"?viewLog():viewGuide();
+  if(tab==="today"){ const fi=document.getElementById(qEdit!=null?"q-in":tEdit!=null?"mt-in":"-"); if(fi){fi.focus(); if(fi.id==="q-in") fi.select()} }
   document.getElementById("nav").innerHTML=NAV.map(n=>`<button data-tab="${n[0]}" ${tab===n[0]?'aria-current="page"':""}><svg viewBox="0 0 24 24" aria-hidden="true">${n[2]}</svg>${n[1]}</button>`).join("");
 }
 let toastT=0, undoSnap=null;
@@ -731,24 +862,30 @@ function toast(m,undo){const t=document.getElementById("toast"); if(!undo) undoS
   t.innerHTML=`<span>${esc(m)}</span>`+(undo?'<button data-act="undo">撤销</button>':"");
   t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;undoSnap=null},undo?5000:1800)}
 /* 可撤销操作：先存快照再执行，只保留最近一次 */
-function withUndo(key,label,fn){const snap=clone(key==="settings"?S.settings.my:(S.days[key]??null)); fn(); undoSnap={key,snap}; toast(label,true)}
+function withUndo(key,label,fn){const st=S.settings, snap=clone(key==="settings"?{my:st.my,fav:st.fav,combos:st.combos}:(S.days[key]??null)); fn(); undoSnap={key,snap}; toast(label,true)}
 function doUndo(){const u=undoSnap; if(!u) return; undoSnap=null;
-  if(u.key==="settings") S.settings.my=u.snap; else S.days[u.key]=u.snap||blankDay(u.key);
-  touch(u.key); render(); toast("已撤销")}
-const findFood=id=>FBY[id]||S.settings.my.find(x=>x.id===id);
-function addFood(f,q,m){mut(cur,d=>{const ex=d.entries.find(e=>e.fid===f.id&&e.m===m); if(ex) ex.q=r1(ex.q+q); else {const e={id:uid(),fid:f.id,n:f.n,q:q,p:f.p,c:f.c,f:f.f,m:m,s:(f.cat==="sweet"||f.s)?1:0};if(f.k!=null)e.k=f.k;d.entries.push(e)}})}
+  if(u.key==="settings"){S.settings.my=u.snap.my;S.settings.fav=u.snap.fav;S.settings.combos=u.snap.combos} else S.days[u.key]=u.snap||blankDay(u.key);
+  touch(u.key); render(); if(sheet==="foods"){fe=null;renderSheet()} toast("已撤销")}
+const findFood=id=>FBY[id]||S.settings.my.find(x=>x.id===id)||recentCache.find(x=>x.id===id);
+/* opts.live：实时记录。只有在看今天、且所选餐次不早于当前时段时才写进食时间 t（当天 0 点起的分钟数）；合并进已有条目时不改 t */
+function addFood(f,q,m,opts){const live=!!(opts&&opts.live)&&cur===today()&&ORD[m]>=ORD[autoMeal()];
+  mut(cur,d=>{const ex=d.entries.find(e=>e.fid===f.id&&e.m===m); if(ex) ex.q=r1(ex.q+q); else {const e={id:uid(),fid:f.id,n:f.n,q:q,p:f.p,c:f.c,f:f.f,m:m,s:(f.cat==="sweet"||f.s)?1:0};if(f.k!=null)e.k=f.k;if(live)e.t=nowMin();d.entries.push(e)}})}
+/* 份量输入框：回车或失焦时保存；空值、非数字或 ≤0 放弃 */
+function commitQ(el){ if(qEdit==null) return; const id=qEdit, v=parseFloat(el&&el.value); qEdit=null;
+  if(isFinite(v)&&v>0){const q=Math.min(20,Math.max(0.1,r1(v))); const e0=dayOf(cur).entries.find(x=>x.id===id); if(e0&&e0.q!==q) mut(cur,d=>{d.entries.find(x=>x.id===id).q=q})}
+  render()}
 function copyText(txt,okMsg,boxId){const fb=()=>{const io=document.getElementById(boxId);if(io){io.hidden=false;io.value=txt;io.focus();io.select();toast("已放入文本框，请长按复制")}};
   try{navigator.clipboard.writeText(txt).then(()=>toast(okMsg),fb)}catch(e){fb()}}
 const cuAuto=()=>{const g=x=>Math.max(0,parseFloat(x)||0),v=4*g(cu.p)+4*g(cu.c)+9*g(cu.f);return v?"自动 "+r0(v):"自动"};
-const EST_PROMPT=`你是营养估算助手。用户用中文描述吃下的一份食物，可能用这些实物单位：1 掌 = 手掌心大小（不含手指）、厚约 1.5cm 的熟肉或海鲜，约 120–130g 熟重；1 拳 = 握紧的拳头大小的熟主食，约 100–130g；两捧 = 双手捧起的蔬菜，约 200g；1 大勺蛋白粉 ≈ 30g 粉。没说做法时按家常少油做法估算，估算的是描述里的整份。只回复一个 JSON 对象，不要其他文字：{"name":"简短名称含份量","p":蛋白质克数,"c":碳水克数,"f":脂肪克数,"note":"一句话说明假设的重量和做法","sweet":是否属于甜点、含糖饮料或零食（true 或 false）}。例如：{"name":"章鱼 1 掌","p":30,"c":4,"f":2,"note":"按熟重约 125g、白灼估算。","sweet":false}。如果描述不是食物，回复 {"error":"无法识别"}。\n\n用户描述：`;
+const EST_PROMPT=`你是营养估算助手。用户用中文描述吃下的一份食物，可能用这些实物单位：1 掌 = 手掌心大小（不含手指）、厚约 1.5cm 的熟肉或海鲜，约 120–130g 熟重；1 拳 = 握紧的拳头大小的熟主食，约 100–130g；两捧 = 双手捧起的蔬菜，约 200g；1 大勺蛋白粉 ≈ 30g 粉。没说做法时按家常少油做法估算，估算的是描述里的整份。只回复一个 JSON 对象，不要其他文字：{"name":"简短名称含份量","p":蛋白质克数,"c":碳水克数,"f":脂肪克数,"note":"一句话说明假设的重量和做法","cat":"pro|carb|veg|fat|sweet 之一（pro 蛋白质类、carb 主食类、veg 蔬菜水果、fat 油脂坚果、sweet 甜点、含糖饮料或零食）"}。例如：{"name":"章鱼 1 掌","p":30,"c":4,"f":2,"note":"按熟重约 125g、白灼估算。","cat":"pro"}。如果描述不是食物，回复 {"error":"无法识别"}。\n\n用户描述：`;
 async function estimate(){
   const q=cu.q.trim(); if(!q){toast("先写下吃了什么");return}
-  if(!sampleFn){cu.open=true;if(!cu.n)cu.n=q;render();toast("这里连不上 AI，请手动填");return}
+  if(!sampleFn){openManual();toast("这里连不上 AI，请手动填");return}
   cu.busy=true;render();
   try{const r=await sampleFn.json(EST_PROMPT+q.slice(0,200),{modelTier:"quick"});
     if(!r||typeof r!=="object"||r.error) throw {code:"unrecognized"};
     const num=x=>Math.max(0,Math.min(500,r1(Number(x)||0)));
-    cu.n=String(r.name||q).slice(0,40);cu.p=num(r.p);cu.c=num(r.c);cu.f=num(r.f);cu.note=String(r.note||"").slice(0,120);cu.s=r.sweet===true;cu.k="";cu.open=true;
+    cu.n=String(r.name||q).slice(0,40);cu.p=num(r.p);cu.c=num(r.c);cu.f=num(r.f);cu.note=String(r.note||"").slice(0,120);cu.cat=CAT_IDS.includes(r.cat)?r.cat:r.sweet===true?"sweet":"";cu.k="";cu.err="";cu.open=true;
   }catch(e){const c=e&&e.code; cu.open=true; if(!cu.n)cu.n=q;
     toast(c==="unrecognized"?"没认出这是什么食物，换个说法试试":c==="rate_limited"?"调用太频繁，稍后再试":c==="not_granted"||c==="sampling_disabled"?"未允许调用 Claude，请手动填":"估算没成功，可重试或手动填")}
   cu.busy=false; if(tab==="today")render();
@@ -785,12 +922,36 @@ function unrestore(){
 }
 
 document.addEventListener("click",ev=>{
-  const tb=ev.target.closest("[data-tab]"); if(tb){tab=tb.dataset.tab;lsSet("tab",tab);render();window.scrollTo(0,0);return}
+  const tb=ev.target.closest("[data-tab]"); if(tb){tab=tb.dataset.tab;lsSet("tab",tab);qEdit=tEdit=cbDraft=null;render();window.scrollTo(0,0);return}
   const b=ev.target.closest("[data-act]"); if(!b) return; const a=b.dataset.act, v=b.dataset.v;
   if(a==="undo"){doUndo();return}
   /* sheet actions: re-render the sheet only */
   if(a==="profile"){openSheet("prof");return}
   if(a==="shclose"){closeSheet();return}
+  if(a==="foods"){openSheet("foods");return}
+  if(a==="fav"){toggleFav(v); if(sheet==="foods") renderSheet(); else renderSR(); return}
+  if(a==="fesel"){const f=S.settings.my.find(x=>x.id===v); fe=(fe&&fe.id===v)||!f?null:{id:f.id,n:f.n,p:f.p,c:f.c,f:f.f,k:f.k!=null?f.k:"",cat:f.cat,err:""}; renderSheet(); return}
+  if(a==="fecat"){ if(fe){fe.cat=v;renderSheet()} return}
+  if(a==="fesave"){ if(!fe) return; const my=S.settings.my, it=my.find(x=>x.id===fe.id), g=x=>Math.max(0,Math.min(5000,r1(parseFloat(x)||0))), nm=String(fe.n).trim().slice(0,40);
+    if(!it){fe=null;renderSheet();return}
+    fe.err=!nm?"请填写名称":my.some(x=>x!==it&&x.n===nm)?"已经有同名的食物了":!CAT_IDS.includes(fe.cat)?"请选择分类":"";
+    if(fe.err){renderSheet();return}
+    it.n=nm;it.p=g(fe.p);it.c=g(fe.c);it.f=g(fe.f);it.cat=fe.cat;it.s=fe.cat==="sweet"?1:0; if(String(fe.k).trim()==="") delete it.k; else it.k=r0(g(fe.k));
+    touch("settings"); fe=null; renderSheet(); toast("已保存"); return}
+  if(a==="fedel"){ if(!fe) return; const id=fe.id, it=S.settings.my.find(x=>x.id===id); fe=null;
+    if(it) withUndo("settings","已删除 "+it.n,()=>{const s=S.settings;s.my=s.my.filter(x=>x.id!==id);s.fav=s.fav.filter(x=>x!==id);touch("settings")});
+    renderSheet(); return}
+  if(a==="cbedit"){openSheet("combo",v);return}
+  if(a==="cdq"){const it=cdr&&cdr.items[+v]; if(it){it.q=Math.min(20,Math.max(0.5,r1((parseFloat(it.q)||0)+ +b.dataset.d)));shErr="";renderSheet()} return}
+  if(a==="cddel"){ if(cdr){cdr.items.splice(+v,1);renderSheet()} return}
+  if(a==="cbsheetsave"){ if(!cdr) return; const nm=String(cdr.n).trim().slice(0,20);
+    shErr=!nm?"给组合起个名字":!cdr.items.length?"组合里至少留一样食物，或者直接删除组合":"";
+    if(shErr){renderSheet();return}
+    cdr.n=nm; cdr.items.forEach(it=>{it.q=Math.min(20,Math.max(0.1,r1(parseFloat(it.q)||0)))});
+    const cs=S.settings.combos, i=cs.findIndex(x=>x.id===cdr.id); if(i>=0){cs[i]=cdr;touch("settings")}
+    closeSheet(); toast(i>=0?"已保存":"这个组合已经不存在了"); return}
+  if(a==="cbsheetdel"){ if(!cdr) return; const id=cdr.id;
+    withUndo("settings","已删除组合",()=>{S.settings.combos=S.settings.combos.filter(x=>x.id!==id);touch("settings")}); closeSheet(); return}
   if(a==="drset"){const k=b.dataset.k; shErr="";
     if(k==="fast") dr.fast=v==="true"; else if(k==="fsel") dr.fsel=v; else setPath(k,v);
     if(k==="pf.n") dr.plan=planFor(+v);
@@ -811,30 +972,47 @@ document.addEventListener("click",ev=>{
   if(a==="unrestore"){unrestore();return}
 
   if(a==="prev"||a==="next"){ if(a==="prev") cur=addDays(cur,-1); else if(cur<addDays(today(),7)) cur=addDays(cur,1);
-    meal=cur===today()?autoMeal():1 }
+    meal=cur===today()?autoMeal():1; qEdit=tEdit=cbDraft=null }
   else if(a==="state"){mut(cur,d=>{d.state=v})}
-  else if(a==="meal"){meal=+v} else if(a==="cat"){cat=v;myEdit=false}
-  else if(a==="add"){const f=findFood(v);if(!f)return;addFood(f,1,meal);toast("已记录 "+f.n)}
+  else if(a==="meal"){meal=+v} else if(a==="cat"){cat=v;favEdit=false}
+  else if(a==="add"){const f=findFood(v);if(!f)return;addFood(f,1,meal,{live:true});toast("已记录 "+f.n);cu.q=""}
+  else if(a==="qedit"){qEdit=v;tEdit=null}
+  else if(a==="mtime"){tEdit=+v;qEdit=null}
+  else if(a==="favedit"){favEdit=!favEdit}
+  else if(a==="unfav"){withUndo("settings","已取消收藏",()=>{S.settings.fav=S.settings.fav.filter(x=>x!==v);touch("settings")})}
+  else if(a==="cbdel"){withUndo("settings","已删除组合",()=>{S.settings.combos=S.settings.combos.filter(x=>x.id!==v);touch("settings")})}
+  else if(a==="cbadd"){const cb=S.settings.combos.find(x=>x.id===v); if(!cb) return;
+    withUndo(cur,"已记入「"+cb.n+"」",()=>cb.items.forEach(it=>addFood({id:it.fid||("cbi-"+uid()),n:it.n,p:it.p,c:it.c,f:it.f,k:it.k,s:it.s},it.q,meal,{live:true})))}
+  else if(a==="cbnew"){const es=dayOf(cur).entries.filter(e=>e.m===+v); if(es.length<2) return;
+    cbDraft={m:+v,n:es.slice(0,2).map(e=>e.n).join(" + ").slice(0,20)}}
+  else if(a==="cbcancel"){cbDraft=null}
+  else if(a==="cbsave"){ if(!cbDraft) return; const nm=String(cbDraft.n).trim().slice(0,20); if(!nm){toast("给组合起个名字");return}
+    const items=dayOf(cur).entries.filter(e=>e.m===cbDraft.m).map(e=>{const it={n:e.n,q:e.q,p:e.p,c:e.c,f:e.f,s:e.s?1:0}; if(e.fid) it.fid=e.fid; if(e.k!=null) it.k=e.k; return it});
+    cbDraft=null; if(!items.length){render();return}
+    const cs=S.settings.combos; cs.unshift({id:"cb-"+uid(),n:nm,items}); if(cs.length>20) cs.length=20; touch("settings"); toast("已存为组合，在“常吃”里")}
   else if(a==="inc"||a==="dec"){const e0=dayOf(cur).entries.find(x=>x.id===v); if(!e0) return;
     const step=()=>mut(cur,d=>{const e=d.entries.find(x=>x.id===v);e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)});
     if(a==="dec"&&r1(e0.q-0.5)<=0) withUndo(cur,"已删除 "+e0.n,step); else step()}
   else if(a==="clear"){ if(dayOf(cur).entries.length) withUndo(cur,"已清空"+dayLabel()+"的记录",()=>mut(cur,d=>{d.entries=[]})) }
   else if(a==="tpl"){withUndo(cur,"已填入，按实际增减",()=>tplOf(stOf(dayOf(cur))).forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1]))))}
-  else if(a==="copyy"){const yd=S.days[addDays(cur,-1)]; if(yd) withUndo(cur,"已复制前一天的记录",()=>mut(cur,d=>{d.entries=yd.entries.map(e=>Object.assign({},e,{id:uid()}))}))}
+  else if(a==="copyy"){const yd=S.days[addDays(cur,-1)]; if(yd) withUndo(cur,"已复制前一天的记录",()=>mut(cur,d=>{d.entries=yd.entries.map(e=>{const x=Object.assign({},e,{id:uid()});delete x.t;return x})}))}
   else if(a==="est"){estimate();return}
-  else if(a==="cuopen"){cu.open=true;if(!cu.n)cu.n=cu.q.trim()}
-  else if(a==="custom"){const n=String(cu.n).trim(),g=x=>Math.max(0,parseFloat(x)||0);
-    const p=g(cu.p),c=g(cu.c),f=g(cu.f),k=String(cu.k).trim()===""?null:r0(g(cu.k)); if(!n||!(p+c+f+(k||0))){toast("填上名称，以及热量或至少一项克数");return}
-    const nm=n.slice(0,40), my=S.settings.my; let item=my.find(x=>x.n===nm);
-    if(!item){item={id:"my-"+uid(),cat:"my",n:nm};my.unshift(item);if(my.length>60)my.length=60}
-    item.p=p;item.c=c;item.f=f;item.s=cu.s?1:0; if(k!=null)item.k=k; else delete item.k; touch("settings");
-    addFood(item,1,meal);cu=cuBlank();toast("已记录，并存入“常吃”")}
-  else if(a==="myedit"){myEdit=!myEdit}
-  else if(a==="mydel"){withUndo("settings","已从“常吃”删除",()=>{S.settings.my=S.settings.my.filter(x=>x.id!==v);touch("settings")})}
+  else if(a==="cuopen"){openManual();return}
+  else if(a==="cuclose"){cu=cuBlank()}
+  else if(a==="cucat"){cu.cat=v;cu.err=""}
+  else if(a==="custom"){const nm=String(cu.n).trim().slice(0,40),g=x=>Math.max(0,parseFloat(x)||0);
+    const p=g(cu.p),c=g(cu.c),f=g(cu.f),k=String(cu.k).trim()===""?null:r0(g(cu.k));
+    cu.err=!nm?"请填写名称":!CAT_IDS.includes(cu.cat)?"请选择分类":!(p+c+f+(k||0))?"填上热量，或至少一项克数":"";
+    if(!cu.err){const st=S.settings; let item=st.my.find(x=>x.n===nm);
+      if(!item){item={id:"my-"+uid(),n:nm};st.my.unshift(item)}
+      item.p=p;item.c=c;item.f=f;item.cat=cu.cat;item.s=cu.cat==="sweet"?1:0; if(k!=null)item.k=k; else delete item.k;
+      const fv=cu.fav; if(fv&&!st.fav.includes(item.id)) st.fav.unshift(item.id);
+      capMy(); touch("settings");
+      addFood(item,1,meal,{live:true});cu=cuBlank();toast(fv?"已记录，已加入常吃":"已记录，已存入我的食物")}}
   else if(a==="water"){mut(cur,d=>{d.water=Math.max(0,Math.min(16,(d.water||0)+ +v))})}
   else if(a==="hz"){hz={id:hz.id===v?null:v,q:1}} else if(a==="hzq"){hz.q=Math.max(0.5,r1(hz.q+ +v))}
   else if(a==="hzclear"){hz={id:null,q:1}}
-  else if(a==="hzadd"){const f=hz.id?findFood(hz.id):null, q=hz.q;if(f){hz={id:null,q:1};withUndo(cur,"已记入"+dayLabel(),()=>addFood(f,q,4))}}
+  else if(a==="hzadd"){const f=hz.id?findFood(hz.id):null, q=hz.q;if(f){hz={id:null,q:1};withUndo(cur,"已记入"+dayLabel(),()=>addFood(f,q,4,{live:true}))}}
   else if(a==="lift"||a==="cardio"){mut(cur,d=>{d[a]=!d[a]})}
   else if(a==="syncw"){const pf=S.settings.profile, a1=avgW(weightSeries(),0,7); if(pf&&a1!=null){pf.w=r1(a1); if(!pf.custom&&!pfError(pf)){const r=compute(pf);S.settings.t={train:r.train,rest:r.rest}} touch("settings"); toast(pf.custom?"档案体重已更新":"已按新体重重新计算目标")}}
   else if(a==="copyai"){copyText(aiBrief(),"已复制，粘贴给 AI 即可","io2");return}
@@ -842,13 +1020,31 @@ document.addEventListener("click",ev=>{
 });
 function renderSheetKeepIO(){const io=document.getElementById("io"),v=io?io.value:"";renderSheet();const n=document.getElementById("io");if(n)n.value=v}
 document.addEventListener("input",ev=>{const el=ev.target;
-  const m=/^cu-([qnpcfk])$/.exec(el.id||""); if(m){cu[m[1]]=el.value;const k=document.getElementById("cu-k");if(k)k.placeholder=cuAuto();return}
+  if(el.id==="cu-q"){cu.q=el.value; if(!ev.isComposing) renderSR(); return}   // 输入法组字中不搜索，compositionend 时再搜
+  const m=/^cu-([npcfk])$/.exec(el.id||""); if(m){cu[m[1]]=el.value;const k=document.getElementById("cu-k");if(k)k.placeholder=cuAuto();return}
+  if(el.id==="cb-n"){ if(cbDraft) cbDraft.n=el.value; return}
+  if(el.id==="cd-n"){ if(cdr) cdr.n=el.value; return}
+  if(el.dataset.cdq!=null){ if(cdr&&cdr.items[+el.dataset.cdq]){cdr.items[+el.dataset.cdq].q=el.value;const x=document.getElementById("cd-sum");if(x)x.textContent=cdSum()} return}
+  if(el.id==="fq"){fq=el.value;const x=document.getElementById("fl");if(x)x.innerHTML=flHTML();return}
+  if(el.dataset.fe){ if(fe) fe[el.dataset.fe]=el.value; return}
   if(el.dataset.dr&&dr){setPath(el.dataset.dr,el.value);const p=document.getElementById("dr-prev");if(p)p.innerHTML=prevHTML()}
 });
-document.addEventListener("keydown",ev=>{ if(ev.key==="Enter"&&ev.target.id==="cu-q"){ev.preventDefault();estimate()} });
+document.addEventListener("compositionend",ev=>{const el=ev.target; if(el.id==="cu-q"){cu.q=el.value;renderSR()} });
+document.addEventListener("keydown",ev=>{ if(ev.key!=="Enter"||ev.isComposing) return; const el=ev.target;
+  if(el.id==="cu-q"){ev.preventDefault(); if(!cu.q.trim()) return;
+    if(searchNow().length) el.blur(); else if(sampleFn) estimate(); else openManual()}
+  else if(el.id==="q-in"){ev.preventDefault();commitQ(el)} });
+/* 失焦：份量输入框保存；时间输入框结束编辑 */
+document.addEventListener("focusout",ev=>{const el=ev.target;
+  if(el.id==="q-in") commitQ(el);
+  else if(el.id==="mt-in"&&tEdit!=null){tEdit=null;render()} });
+/* 点搜索结果里的 ☆ 时不让输入框失焦 */
+document.addEventListener("mousedown",ev=>{ if(ev.target.closest&&ev.target.closest('#sr [data-act="fav"]')) ev.preventDefault() });
 document.addEventListener("change",ev=>{
   const el=ev.target;
-  if(el.id==="cu-s"){cu.s=el.checked;return}
+  if(el.id==="cu-fav"){cu.fav=el.checked;return}
+  if(el.id==="mt-in"){ if(tEdit==null) return; const m=tEdit, ok=/^\d\d:\d\d/.test(el.value), t=ok?mins(el.value.slice(0,5)):null;
+    if(dayOf(cur).entries.some(e=>e.m===m)) mut(cur,d=>{d.entries.forEach(e=>{ if(e.m===m){ if(ok) e.t=t; else delete e.t } })}); return}
   if(el.dataset.drc&&dr){dr.pf.custom=el.checked; if(el.checked&&!pfError(dr.pf)){const r=compute(dr.pf);dr.t={train:r.train,rest:r.rest}} renderSheet();return}
   if(el.id==="bkfile"&&el.files&&el.files[0]){const fr=new FileReader();fr.onload=()=>{const io=document.getElementById("io");if(io){io.value=String(fr.result||"");armed=false;toast("已读取文件，点“恢复数据”")}};fr.readAsText(el.files[0]);return}
   if(el.dataset.chg){const k=el.dataset.chg;
