@@ -1,0 +1,721 @@
+<title>On a Cut 刷脂助手</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: phone-first single column, fixed bottom tab bar; macro gauges drawn as measuring tapes with a target band. */
+:root{
+  --bg:#EEF1EE; --surface:#FFFFFF; --sunk:#E4E9E5; --ink:#17211E; --muted:#5F6C67; --line:#D5DCD7;
+  --accent:#0C6A5B; --on-accent:#FFFFFF; --accent-soft:#D8EBE6;
+  --pro:#B32E4E; --carb:#B97A08; --fat:#2F66AE; --kcal:#4A5551;
+  --good:#23794C; --warn:#B4500F; --warn-soft:#F8E6D8;
+  --num:"Barlow Semi Condensed","DIN Alternate","Helvetica Neue",Arial,sans-serif;
+  --text:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","Noto Sans SC","Microsoft YaHei","Segoe UI",sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101614; --surface:#19211E; --sunk:#222C28; --ink:#E7EDEA; --muted:#93A09A; --line:#2D3833;
+  --accent:#54C7B1; --on-accent:#06231D; --accent-soft:#1D3A34;
+  --pro:#F07F98; --carb:#E8B449; --fat:#82ADEA; --kcal:#AEB9B4;
+  --good:#63C990; --warn:#F09A5B; --warn-soft:#3A281B; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#101614; --surface:#19211E; --sunk:#222C28; --ink:#E7EDEA; --muted:#93A09A; --line:#2D3833;
+  --accent:#54C7B1; --on-accent:#06231D; --accent-soft:#1D3A34;
+  --pro:#F07F98; --carb:#E8B449; --fat:#82ADEA; --kcal:#AEB9B4;
+  --good:#63C990; --warn:#F09A5B; --warn-soft:#3A281B; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--text);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:12px calc(84px + env(safe-area-inset-bottom,0px));-webkit-text-size-adjust:100%}
+#app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;text-wrap:balance}
+h2{font-size:16px}
+h3{font-size:14px}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+
+/* header */
+.top{display:flex;align-items:center;gap:8px}
+.top .date{flex:1;min-width:0}
+.top .d1{font-family:var(--num);font-size:26px;font-weight:700;line-height:1.1;letter-spacing:.01em}
+.top .d2{font-size:12.5px;color:var(--muted)}
+.icon-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:18px;line-height:1}
+.sync{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 8px;white-space:nowrap}
+.sync.on{color:var(--good);border-color:var(--good)}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row > .grow{flex:1;min-width:0}
+.sec-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+
+/* segmented */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--sunk);border-radius:12px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:8px 4px;min-height:44px;line-height:1.25;color:var(--muted)}
+.seg button b{display:block;font-size:14px;color:inherit}
+.seg button span{font-size:11.5px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.seg.slim button{min-height:36px;padding:6px 4px;font-size:13px}
+
+/* window status */
+.win{display:flex;align-items:center;gap:12px}
+.win .clock{font-family:var(--num);font-size:22px;font-weight:600;white-space:nowrap}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:12.5px;font-weight:600;background:var(--sunk);color:var(--muted)}
+.pill.open{background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+
+/* tape gauges */
+.g{display:flex;flex-direction:column;gap:5px}
+.g-top{display:flex;align-items:baseline;gap:8px}
+.g-name{font-weight:600;width:3.2em;flex:none}
+.g-val{flex:1;min-width:0;color:var(--muted);font-family:var(--num);font-size:14px}
+.g-val b{font-size:22px;font-weight:700;color:var(--col)}
+.g-st{font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.g-st.good{color:var(--good)} .g-st.warn{color:var(--warn)}
+.tape{position:relative;height:16px;border-radius:4px;background:var(--sunk);overflow:hidden}
+.tape::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 1px),var(--line) calc(5% - 1px) 5%);opacity:.9;pointer-events:none}
+.tape .fill{position:absolute;inset:0 auto 0 0;background:var(--col);border-radius:4px 0 0 4px;transition:width .25s}
+.tape .band{position:absolute;top:0;bottom:0;border-inline:2px solid var(--ink);background:color-mix(in srgb,var(--ink) 12%,transparent);z-index:2}
+.tape .floor{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed var(--warn);z-index:2}
+@media (prefers-reduced-motion: reduce){ .tape .fill{transition:none} }
+
+.hint{background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
+.hint.warn{background:var(--warn-soft)}
+.hint b{color:var(--accent)} .hint.warn b{color:var(--warn)}
+
+/* food chips */
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.chip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:54px}
+.chip:active{background:var(--accent-soft)}
+.chip .n{font-weight:600;font-size:14px;line-height:1.3}
+.chip .m{font-family:var(--num);font-size:12.5px;color:var(--muted)}
+.chip.sel{border-color:var(--accent);background:var(--accent-soft)}
+.chip.del{border-color:var(--warn);border-style:dashed}
+.chip.del .n{color:var(--warn)}
+.mnote{font-size:13px;color:var(--muted);padding:2px 0 4px}
+.mnote.good{color:var(--good)} .mnote.warn{color:var(--warn)}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;border:1px solid var(--line);background:transparent;border-radius:99px;padding:6px 12px;min-height:36px;color:var(--muted);font-size:13.5px}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* log */
+.meal-h{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:4px}
+.meal-h b{color:var(--ink)}
+.entry{display:flex;align-items:center;gap:8px;padding:4px 0}
+.entry .e-n{flex:1;min-width:0}
+.entry .e-n div:first-child{font-weight:600;font-size:14px}
+.entry .e-n .m{font-family:var(--num);font-size:12.5px;color:var(--muted)}
+.step{display:flex;align-items:center;gap:2px;flex:none}
+.step button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:16px;line-height:1}
+.step .q{font-family:var(--num);font-weight:600;min-width:2.2em;text-align:center}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:10px 0}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;min-height:42px;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.field{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted);min-width:0}
+.field input,.field select,.field textarea,.inp{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;min-height:40px;font-size:16px;color:var(--ink);width:100%;min-width:0}
+textarea.inp{min-height:76px;resize:vertical;font-size:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+
+/* water + week */
+.cups{display:flex;gap:5px;flex-wrap:wrap}
+.cups i{width:22px;height:26px;border:1.5px solid var(--fat);border-radius:3px 3px 7px 7px;display:block}
+.cups i.f{background:var(--fat)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.week div{border:1px solid var(--line);border-radius:10px;padding:6px 0;text-align:center;font-size:12px;color:var(--muted)}
+.week div b{display:block;font-family:var(--num);font-size:17px;color:var(--ink)}
+.week div.done{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.week div.done b{color:var(--on-accent)}
+.week div.today{outline:2px solid var(--ink);outline-offset:1px}
+.cal{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px}
+.cal i{aspect-ratio:1;border-radius:6px;background:var(--sunk);display:grid;place-items:center;font-style:normal;font-family:var(--num);font-size:12.5px;color:var(--muted)}
+.cal i.ok{background:var(--accent);color:var(--on-accent)}
+.cal i.half{background:var(--accent-soft);color:var(--accent)}
+.cal i.now{outline:2px solid var(--ink);outline-offset:1px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stats div{background:var(--sunk);border-radius:10px;padding:8px 10px}
+.stats b{display:block;font-family:var(--num);font-size:22px;line-height:1.15}
+.stats span{font-size:12px;color:var(--muted)}
+svg text{font-family:var(--num);font-size:11px;fill:var(--muted)}
+
+.chips.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--sunk);border-radius:12px;padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .k{font-size:12.5px;color:var(--muted);font-weight:600}
+.tile .v{font-family:var(--num);font-size:34px;font-weight:700;line-height:1.05}
+.tile .v small{font-family:var(--text);font-size:14px;font-weight:600;margin-left:2px}
+.tile .s{font-size:12px;color:var(--muted);line-height:1.35}
+.tile.zero{background:var(--warn-soft)} .tile.zero .v{color:var(--warn)}
+.tile.go{background:var(--accent-soft)} .tile.go .v{color:var(--accent)}
+.stats b.neg{color:var(--warn)}
+.verdict{display:flex;flex-wrap:wrap;gap:6px}
+.verdict .pill{font-size:13px;padding:4px 12px}
+.pill.good{background:var(--accent-soft);color:var(--good)}
+.link{border:0;background:none;padding:4px 0;color:var(--accent);font-weight:600;text-align:left;min-height:32px}
+.est{display:flex;flex-direction:column;gap:8px;background:var(--sunk);border-radius:10px;padding:10px}
+.est .field input{background:var(--surface)}
+
+.tl{display:flex;flex-direction:column}
+.tl .m{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);align-items:baseline}
+.tl .m:first-child{border-top:0;padding-top:0}
+.tl .t{font-family:var(--num);font-size:18px;font-weight:700}
+.tl .w b{display:block;font-size:13px;color:var(--muted);font-weight:600}
+.tl .w span{font-size:14.5px;line-height:1.45}
+.tl .pp{font-family:var(--num);font-size:13px;color:var(--pro);font-weight:600;white-space:nowrap}
+
+/* guide */
+details{border-top:1px solid var(--line);padding:10px 0}
+details:first-of-type{border-top:0}
+summary{font-weight:600;cursor:pointer;min-height:28px}
+details ul{margin:8px 0 0;padding-left:1.2em;display:flex;flex-direction:column;gap:5px}
+details p{margin:8px 0 0}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:8px}
+th,td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;white-space:nowrap}
+td.n,th.n{font-family:var(--num);text-align:right}
+.plan li{margin:0}
+.plan{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+
+/* bottom nav */
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);z-index:20;
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+nav button{border:0;background:transparent;border-radius:10px;min-height:48px;color:var(--muted);font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:99px;font-size:13.5px;z-index:30;max-width:90vw}
+</style>
+
+<div id="app"></div>
+<nav aria-label="主导航"><div class="in" id="nav"></div></nav>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- helpers ---------- */
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const z=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
+const parseD=s=>{const a=s.split("-").map(Number);return new Date(a[0],a[1]-1,a[2])};
+const addDays=(s,n)=>{const d=parseD(s);d.setDate(d.getDate()+n);return ymd(d)};
+const diffDays=(a,b)=>Math.round((parseD(a)-parseD(b))/864e5);
+const today=()=>ymd(new Date());
+const r0=n=>Math.round(n), r1=n=>Math.round(n*10)/10, half=n=>Math.round(n*2)/2;
+const WD=["日","一","二","三","四","五","六"];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const kcalOf=o=>o.k!=null?o.k:4*o.p+4*o.c+9*o.f;
+
+/* ---------- food library (估算值，按实物单位) ---------- */
+const FOODS=[
+ {id:"lean",cat:"pro",n:"瘦肉 1 掌",u:"掌",d:"鸡胸/虾/白身鱼",p:30,c:0,f:3},
+ {id:"beef",cat:"pro",n:"瘦牛肉 1 掌",u:"掌",d:"牛里脊/牛腱",p:30,c:0,f:8},
+ {id:"salmon",cat:"pro",n:"三文鱼 1 掌",u:"掌",d:"脂肪较高",p:25,c:0,f:15},
+ {id:"whey",cat:"pro",n:"Bulk 蛋白粉 1 大勺",u:"勺",d:"水冲",p:23,c:2,f:2},
+ {id:"egg",cat:"pro",n:"鸡蛋 1 个",u:"个",d:"全蛋",p:6.5,c:0.5,f:5},
+ {id:"milk",cat:"pro",n:"全脂牛奶 250ml",u:"杯",d:"冲蛋白粉要另计",p:8,c:12,f:9},
+ {id:"lmilk",cat:"pro",n:"低脂牛奶 250ml",u:"杯",d:"",p:8.5,c:12.5,f:4},
+ {id:"soy",cat:"pro",n:"无糖豆浆粉 1 袋",u:"袋",d:"",p:6,c:3,f:3},
+ {id:"yog",cat:"pro",n:"无糖希腊酸奶 150g",u:"杯",d:"",p:13,c:6,f:3},
+ {id:"tofu",cat:"pro",n:"豆腐 半盒",u:"份",d:"约 150g",p:12,c:3,f:7},
+ {id:"rice",cat:"carb",n:"米饭/杂粮饭 1 拳",u:"拳",d:"熟重 100–130g",p:3,c:33,f:0.5},
+ {id:"yam",cat:"carb",n:"紫薯/红薯 1 拳",u:"拳",d:"约 130g",p:2,c:30,f:0},
+ {id:"bag3",cat:"carb",n:"法棍 1/3 根",u:"段",d:"手掌长 约 80g",p:7,c:45,f:1},
+ {id:"bag2",cat:"carb",n:"法棍 半根",u:"段",d:"约 125g",p:11,c:70,f:1.5},
+ {id:"toast",cat:"carb",n:"吐司 1 片",u:"片",d:"练前快碳",p:3,c:14,f:1},
+ {id:"oat",cat:"carb",n:"燕麦 20g",u:"份",d:"干重 2 汤匙",p:2.5,c:13,f:1.5},
+ {id:"banana",cat:"veg",n:"香蕉 半根",u:"份",d:"练前快碳",p:0.5,c:12,f:0},
+ {id:"fruit",cat:"veg",n:"水果 1 拳",u:"拳",d:"苹果/莓果/橙",p:0.5,c:15,f:0},
+ {id:"veg",cat:"veg",n:"蔬菜 两捧",u:"份",d:"绿叶/菌菇/瓜类",p:3,c:8,f:0},
+ {id:"oil",cat:"fat",n:"烹调油 1 茶匙",u:"匙",d:"5g，最容易漏记",p:0,c:0,f:5},
+ {id:"nuts",cat:"fat",n:"坚果 1 小把",u:"把",d:"约 15g",p:3,c:3,f:8},
+ {id:"avo",cat:"fat",n:"牛油果 半个",u:"份",d:"",p:1.5,c:2,f:11},
+ {id:"flan",cat:"sweet",n:"Flan 1 块",u:"块",d:"法式蛋奶挞 约 120g",p:5,c:38,f:12},
+ {id:"crois",cat:"sweet",n:"黄油可颂 1 个",u:"个",d:"约 60g",p:5,c:26,f:14},
+ {id:"pac",cat:"sweet",n:"巧克力可颂 1 个",u:"个",d:"约 70g",p:6,c:32,f:17},
+ {id:"cookie",cat:"sweet",n:"曲奇 1 大块",u:"块",d:"约 45g",p:2.5,c:28,f:11},
+ {id:"cake",cat:"sweet",n:"蛋糕 1 片",u:"片",d:"奶油/芝士类",p:4,c:40,f:16},
+ {id:"ice",cat:"sweet",n:"冰淇淋 1 球",u:"球",d:"",p:2,c:16,f:7},
+ {id:"tea",cat:"sweet",n:"奶茶 1 杯",u:"杯",d:"中杯半糖",p:3,c:45,f:8}
+];
+/* 参考餐单：[时间, 餐次, 标题, [[食物id, 份数, 显示文字]...]] */
+const TPL={
+ A:[["11:30",1,"练后大餐",[["lean",1,"瘦肉 1 掌"],["rice",2,"米饭 2 拳"],["veg",1,"蔬菜两捧"],["oil",2,"油 2 茶匙"]]],
+    ["15:30",2,"第二餐",[["whey",1,"蛋白粉 1 勺"],["milk",1,"全脂牛奶 250ml"],["bag3",1,"法棍 1/3 根"],["fruit",1,"水果 1 拳"]]],
+    ["19:00",3,"收尾",[["salmon",1,"三文鱼 1 掌"],["rice",0.5,"米饭半拳"],["veg",1,"蔬菜两捧"],["oil",1,"油 1 茶匙"]]]],
+ B:[["09:30",1,"练后先接住",[["whey",1,"蛋白粉 1 勺"],["milk",1,"全脂牛奶 250ml"],["bag3",1,"法棍 1/3 根"],["banana",1,"香蕉半根"]]],
+    ["13:00",2,"正餐",[["lean",1,"瘦肉 1 掌"],["rice",1.5,"米饭 1 拳半"],["veg",1,"蔬菜两捧"],["oil",2,"油 2 茶匙"]]],
+    ["16:00",4,"加餐",[["fruit",1,"水果 1 拳"],["nuts",1,"坚果 1 小把"]]],
+    ["19:00",3,"收尾",[["lean",0.5,"瘦肉半掌"],["egg",1,"鸡蛋 1 个"],["rice",0.5,"米饭半拳"],["veg",1,"蔬菜两捧"],["oil",1,"油 1 茶匙"]]]],
+ C:[["11:30",1,"第一餐",[["egg",2,"鸡蛋 2 个"],["whey",1,"蛋白粉 1 勺（水冲）"],["oat",1,"燕麦 20g"],["fruit",1,"水果 1 拳"]]],
+    ["15:00",2,"正餐",[["lean",1,"瘦肉 1 掌"],["rice",1.5,"米饭 1 拳半"],["veg",1,"蔬菜两捧"],["oil",2,"油 2 茶匙"]]],
+    ["19:00",3,"收尾",[["beef",1,"瘦牛肉 1 掌"],["yam",1,"紫薯 1 拳"],["veg",1,"蔬菜两捧"],["fruit",1,"水果 1 拳"],["oil",1,"油 1 茶匙"]]]]
+};
+const FBY={}; FOODS.forEach(f=>{FBY[f.id]=f});
+function tplCard(day){
+  const T={p:0,c:0,f:0};
+  const rows=TPL[day.state].map(m=>{let mp=0; m[3].forEach(it=>{const f=FBY[it[0]];T.p+=f.p*it[1];T.c+=f.c*it[1];T.f+=f.f*it[1];mp+=f.p*it[1]});
+    return `<div class="m"><span class="t">${m[0]}</span><span class="w"><b>${m[2]}</b><span>${m[3].map(it=>it[2]).join(" · ")}</span></span><span class="pp">蛋白 ${r0(mp)}</span></div>`}).join("");
+  const body=`<div class="tl">${rows}</div>
+   <div class="small muted">合计 蛋白 ${r0(T.p)} · 碳水 ${r0(T.c)} · 脂肪 ${r0(T.f)} · ${r0(kcalOf(T))} kcal。同类随便换：瘦肉 ↔ 虾 ↔ 白身鱼；1 拳饭 ↔ 1 拳紫薯；2 拳饭 ≈ 半根法棍。</div>
+   <button class="btn" data-act="tpl">${day.entries.length?"再追加这份餐单":"照这份填入，再按实际增减"}</button>`;
+  return day.entries.length
+    ? `<section class="panel" style="padding-block:4px"><details><summary>参考餐单 · ${STATES[day.state].t}</summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">${body}</div></details></section>`
+    : `<section class="panel"><div class="sec-title"><h2>参考餐单 · ${STATES[day.state].t}</h2><span class="muted small">${STATES[day.state].s}</span></div>${body}</section>`;
+}
+const CATS=[["pro","蛋白质"],["carb","主食"],["veg","蔬果"],["fat","油脂"],["sweet","甜点"]];
+const MEALS=["","第 1 餐 · 破断食","第 2 餐","第 3 餐","加餐 / 练前"];
+const STATES={A:{t:"训练 A",s:"11 点练完 · 16+8"},B:{t:"训练 B",s:"9 点练完 · 14+10"},C:{t:"休息日",s:"少 1 拳主食"}};
+
+/* ---------- state + storage ---------- */
+const LS="onacut.v1";
+function defaults(){return {v:1,updatedAt:0,start:today(),weight0:63.5,
+  plan:["C","A","C","A","C","A","A"], my:[],
+  win:{A:["11:30","19:30"],B:["09:30","19:30"],C:["11:30","19:30"]},
+  t:{train:{p:[100,110],pf:85,c:[165,180],f:[42,48],k:[1500,1600]},
+     rest:{p:[100,110],pf:85,c:[125,140],f:[42,48],k:[1350,1450]}}}}
+let S={settings:defaults(),days:{}};
+try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);if(o&&o.settings){S.settings=Object.assign(defaults(),o.settings);S.days=o.days||{}}}}catch(e){}
+const saveLocal=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
+
+let col=null, cloud="local"; // local | on | off
+const dirty=new Set(); let flushing=false, flushT=0;
+function touch(key){ // key: "settings" or a date
+  const o=key==="settings"?S.settings:S.days[key]; if(o) o.updatedAt=Date.now();
+  saveLocal(); if(col){dirty.add(key);clearTimeout(flushT);flushT=setTimeout(flush,700)}
+}
+async function flush(){
+  if(flushing||!col) return; flushing=true;
+  try{ while(dirty.size){ const key=dirty.values().next().value; dirty.delete(key);
+      const o=key==="settings"?S.settings:S.days[key]; if(!o) continue;
+      try{ await col.doc(key).set(JSON.parse(JSON.stringify(o))) }
+      catch(e){ if(e&&e.code==="unavailable"){ await new Promise(r=>setTimeout(r,1500+Math.random()*1500)); try{await col.doc(key).set(JSON.parse(JSON.stringify(o)))}catch(e2){setCloud("off");return} }
+                else { setCloud("off"); return } } }
+  } finally{ flushing=false }
+}
+function setCloud(s){cloud=s; if(s==="off") col=null; const el=document.getElementById("sync"); if(el){el.className="sync"+(s==="on"?" on":"");el.textContent=syncLabel()}}
+const syncLabel=()=>cloud==="on"?"云端已同步":"仅本机保存";
+async function pull(){
+  if(!col) return;
+  const snap=await Promise.race([col.limit(1000).get(),new Promise((_,rej)=>setTimeout(()=>rej({code:"timeout"}),10000))]);
+  let changed=false; const seen=new Set();
+  snap.docs.forEach(d=>{ const data=d.data(); if(!data) return; seen.add(d.id);
+    const copy=JSON.parse(JSON.stringify(data));
+    if(d.id==="settings"){ if((copy.updatedAt||0)>(S.settings.updatedAt||0)){S.settings=Object.assign(defaults(),copy);changed=true} else if((S.settings.updatedAt||0)>(copy.updatedAt||0)) dirty.add("settings") }
+    else if(/^\d{4}-\d{2}-\d{2}$/.test(d.id)){ const loc=S.days[d.id];
+      if(!loc||(copy.updatedAt||0)>(loc.updatedAt||0)){S.days[d.id]=copy;changed=true} else if((loc.updatedAt||0)>(copy.updatedAt||0)) dirty.add(d.id) } });
+  if(S.settings.updatedAt&&!seen.has("settings")) dirty.add("settings");
+  Object.keys(S.days).forEach(k=>{ if(!seen.has(k)) dirty.add(k) });
+  if(changed){saveLocal();render()}
+  if(dirty.size) flush();
+}
+async function initCloud(){
+  try{
+    if(!window.claude||!window.claude.use) return;
+    window.claude.use("sample").then(f=>{sampleFn=f||null}).catch(()=>{});
+    const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
+    if(!db||!user) return; const id=await user.id(); if(!id) return;
+    col=db.collection("data/users/"+id);
+    await pull(); setCloud("on");
+    document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&col) pull().catch(()=>{}) });
+  }catch(e){ col=null; setCloud("local") }
+}
+
+/* ---------- domain ---------- */
+let cur=today(), tab="today", cat="pro", meal=1, hz={id:null,q:1};
+const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",k:"",note:"",open:false,busy:false});
+let myEdit=false;
+const findFood=id=>FBY[id]||(S.settings.my||[]).find(x=>x.id===id);
+let cu=cuBlank(), sampleFn=null;
+const EST_PROMPT=`你是营养估算助手。用户用中文描述吃下的一份食物，可能用这些实物单位：1 掌 = 手掌心大小（不含手指）、厚约 1.5cm 的熟肉或海鲜，约 120–130g 熟重；1 拳 = 握紧的拳头大小的熟主食，约 100–130g；两捧 = 双手捧起的蔬菜，约 200g；1 大勺蛋白粉 ≈ 30g 粉。没说做法时按家常少油做法估算，估算的是描述里的整份。只回复一个 JSON 对象，不要其他文字：{"name":"简短名称含份量","p":蛋白质克数,"c":碳水克数,"f":脂肪克数,"note":"一句话说明假设的重量和做法"}。例如：{"name":"章鱼 1 掌","p":30,"c":4,"f":2,"note":"按熟重约 125g、白灼估算。"}。如果描述不是食物，回复 {"error":"无法识别"}。\n\n用户描述：`;
+const cuAuto=()=>{const g=x=>Math.max(0,parseFloat(x)||0),v=4*g(cu.p)+4*g(cu.c)+9*g(cu.f);return v?"自动 "+r0(v):"自动"};
+async function estimate(){
+  const q=cu.q.trim(); if(!q){toast("先写下吃了什么");return}
+  if(!sampleFn){cu.open=true;if(!cu.n)cu.n=q;render();toast("这里连不上 AI，请手动填克数");return}
+  cu.busy=true;render();
+  try{const r=await sampleFn.json(EST_PROMPT+q.slice(0,200),{modelTier:"quick"});
+    if(!r||typeof r!=="object"||r.error) throw {code:"unrecognized"};
+    const num=x=>Math.max(0,Math.min(500,r1(Number(x)||0)));
+    cu.n=String(r.name||q).slice(0,40);cu.p=num(r.p);cu.c=num(r.c);cu.f=num(r.f);cu.note=String(r.note||"").slice(0,120);cu.k="";cu.open=true;
+  }catch(e){const c=e&&e.code; cu.open=true; if(!cu.n)cu.n=q;
+    toast(c==="unrecognized"?"没认出这是什么食物，换个说法试试":c==="rate_limited"?"调用太频繁，稍后再试":c==="not_granted"||c==="sampling_disabled"?"未允许调用 Claude，请手动填克数":"估算没成功，可重试或手动填")}
+  cu.busy=false; if(tab==="today")render();
+}
+try{const t=localStorage.getItem(LS+".tab"); if(t) tab=t}catch(e){}
+const dayOf=d=>S.days[d]||{state:S.settings.plan[parseD(d).getDay()],entries:[],water:0};
+function mut(d,fn){ if(!S.days[d]) S.days[d]={state:S.settings.plan[parseD(d).getDay()],entries:[],water:0}; fn(S.days[d]); touch(d) }
+const targets=st=>S.settings.t[st==="C"?"rest":"train"];
+function totals(day,m){const t={p:0,c:0,f:0,k:0};(day.entries||[]).forEach(e=>{if(m&&e.m!==m)return;t.p+=e.p*e.q;t.c+=e.c*e.q;t.f+=e.f*e.q;t.k+=kcalOf(e)*e.q});return t}
+const mins=s=>{const a=s.split(":").map(Number);return a[0]*60+a[1]};
+const dur=m=>{m=Math.max(0,Math.round(m));return (m>=60?Math.floor(m/60)+" 小时 ":"")+(m%60)+" 分"};
+function winStatus(day,date){
+  const w=S.settings.win[day.state], a=mins(w[0]), b=mins(w[1]);
+  if(date!==today()) return {w,cls:"",txt:STATES[day.state].s};
+  const n=new Date(), now=n.getHours()*60+n.getMinutes();
+  if(now<a) return {w,cls:"",txt:"断食中，距开窗 "+dur(a-now)};
+  if(now<b) return {w,cls:"open",txt:"进食窗口内，还剩 "+dur(b-now),left:b-now};
+  return {w,cls:"closed",txt:"已关窗，喝水/无糖茶",closed:true};
+}
+
+/* ---------- views ---------- */
+function gauge(name,v,lo,hi,col,unit,floor,isPro){
+  const max=hi*1.3, pct=x=>Math.min(100,x/max*100);
+  let st,cls="";
+  if(isPro&&v<floor&&isPro===2){st="低于底线 "+floor;cls="warn"}
+  else if(v<lo){st="还差 "+r0(lo-v)}
+  else if(v<=hi||isPro){st="达标";cls="good"}
+  else{st="超出 "+r0(v-hi);cls="warn"}
+  return `<div class="g" style="--col:var(--${col})"><div class="g-top"><span class="g-name">${name}</span>
+   <span class="g-val"><b>${r0(v)}</b> / ${lo}–${hi} ${unit}</span><span class="g-st ${cls}">${st}</span></div>
+   <div class="tape" role="img" aria-label="${name} ${r0(v)}${unit}，目标 ${lo} 到 ${hi}">
+   <i class="fill" style="width:${pct(v)}%"></i><i class="band" style="left:${pct(lo)}%;width:${pct(hi)-pct(lo)}%"></i>
+   ${floor?`<i class="floor" style="left:${pct(floor)}%"></i>`:""}</div></div>`;
+}
+function nextHint(day,date,T,t,ws){
+  const needP=Math.max(0,(t.p[0]+t.p[1])/2-T.p), roomC=t.c[1]-T.c, roomK=t.k[1]-T.k, roomF=t.f[1]-T.f;
+  if(!day.entries.length) return `<div class="hint">${date>today()?"提前排好这一天：照下面的参考餐单填入，再换成你想吃的。":"今天还没记录。"}${day.state==="C"?"休息日把主食控制在 <b>3–4 拳</b>，蛋白照旧。":"练后第一餐吃最大的一份：<b>1 掌瘦肉 + 2 拳主食 + 两捧菜</b>。"}</div>`;
+  if(ws.closed&&T.p<t.pf) return `<div class="hint warn"><b>蛋白质低于底线 ${t.pf}g。</b>底线优先于断食窗口：现在水冲 1 大勺蛋白粉（约 23g），不算破戒。</div>`;
+  const parts=[];
+  if(needP>8){const palms=half(needP/30)||0.5; parts.push(`蛋白还差约 <b>${r0(needP)}g</b> ≈ <b>${palms} 掌瘦肉</b>${needP<=28?" 或 1 大勺蛋白粉":""}`)}
+  else parts.push("蛋白质已到位");
+  const fists=Math.max(0,half(Math.min(roomC/33,(roomK-needP*5)/140)));
+  if(fists>=0.5) parts.push(`主食还能吃 <b>${fists} 拳</b>`); else parts.push("主食额度已用完，剩下用蔬菜撑饱");
+  if(roomF<5) parts.push("脂肪见顶，后面蒸煮不加油");
+  const warn=roomK<-60;
+  if(warn) parts.push(`热量超出约 <b>${r0(-roomK)} kcal</b>，去“对冲”页看摊平方案`);
+  return `<div class="hint${warn?" warn":""}">${parts.join("；")}。</div>`;
+}
+function mealNote(day,i,mt,es){
+  const w=[], hasVeg=es.some(e=>e.fid==="veg"), sweet=es.some(e=>e.s);
+  if(i===4){ if(mt.k>250) w.push(`加餐 ${r0(mt.k)} kcal 偏多，正餐主食相应少半拳`); else if(sweet) w.push("甜点已计入额度");
+    return w.length?["warn",w.join("；")+"。"]:["good","✓ 份量合适。"] }
+  if(mt.p<25) w.push(`蛋白只有 ${r0(mt.p)}g，再加半掌肉或 1 个蛋`);
+  else if(mt.p>45) w.push(`蛋白 ${r0(mt.p)}g 偏多，可挪一部分到下一餐`);
+  if(i===1&&day.state!=="C"&&mt.c<50) w.push("练后这餐碳水偏少，可再加 1 拳主食");
+  if(i===3&&mt.c>45) w.push("晚餐主食偏多，下次把主食往前两餐挪");
+  if(mt.f>20) w.push(`油脂 ${r0(mt.f)}g 偏高，下一餐蒸煮少油`);
+  if(!hasVeg) w.push("缺蔬菜，补两捧");
+  if(sweet) w.push("甜点已计入额度");
+  return w.length?["warn",w.slice(0,2).join("；")+"。"]:["good","✓ 蛋白到位，搭配均衡。"];
+}
+function viewToday(){
+  const day=dayOf(cur), t=targets(day.state), T=totals(day), ws=winStatus(day,cur);
+  const dn=diffDays(cur,S.settings.start)+1;
+  const segs=Object.keys(STATES).map(k=>`<button data-act="state" data-v="${k}" aria-pressed="${day.state===k}"><b>${STATES[k].t}</b><span>${STATES[k].s}</span></button>`).join("");
+  const mealTabs=[1,2,3,4].map(i=>`<button data-act="meal" data-v="${i}" aria-pressed="${meal===i}">${MEALS[i]}</button>`).join("");
+  const my=S.settings.my||[]; if(cat==="my"&&!my.length){cat="pro";myEdit=false}
+  const catTabs=(my.length?[["my","常吃"]]:[]).concat(CATS).map(c=>`<button data-act="cat" data-v="${c[0]}" aria-pressed="${cat===c[0]}">${c[1]}</button>`).join("");
+  const chips=cat==="my"
+   ? my.map(f=>`<button class="chip${myEdit?" del":""}" data-act="${myEdit?"mydel":"add"}" data-v="${f.id}"><span class="n">${myEdit?"✕ ":""}${esc(f.n)}</span><span class="m">${r0(kcalOf(f))} kcal · 蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
+     +`<button class="link" data-act="myedit" style="grid-column:1/-1">${myEdit?"完成":"整理常吃（删除不再吃的）"}</button>`
+   : FOODS.filter(f=>f.cat===cat).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("");
+  let log="";
+  [1,2,3,4].forEach(i=>{const es=day.entries.filter(e=>e.m===i); if(!es.length) return; const mt=totals(day,i);
+    const note=mealNote(day,i,mt,es);
+    log+=`<div class="meal-h"><span><b>${MEALS[i]}</b></span><span class="num">蛋白 ${r0(mt.p)}g · ${r0(mt.k)} kcal</span></div><div class="mnote ${note[0]}">${note[1]}</div>`+
+     es.map(e=>`<div class="entry"><div class="e-n"><div>${esc(e.n)}</div><div class="m">蛋白 ${r1(e.p*e.q)} · 碳水 ${r1(e.c*e.q)} · 脂肪 ${r1(e.f*e.q)} · ${r0(kcalOf(e)*e.q)} kcal</div></div>
+      <div class="step"><button data-act="dec" data-v="${e.id}" aria-label="减半份">−</button><span class="q">×${e.q}</span><button data-act="inc" data-v="${e.id}" aria-label="加半份">+</button></div></div>`).join("")});
+  const cups=Array.from({length:8},(_,i)=>`<i class="${i<(day.water||0)?"f":""}"></i>`).join("");
+  return `
+  <header class="top"><button class="icon-btn" data-act="prev" aria-label="前一天">‹</button>
+   <div class="date"><div class="d1">${cur===today()?"今天":cur===addDays(today(),1)?"明天":cur.slice(5).replace("-","/")} <span style="font-size:15px;font-weight:500">周${WD[parseD(cur).getDay()]}</span></div>
+   <div class="d2">${dn>=1&&dn<=30?`刷脂第 ${dn} / 30 天`:dn>30?`已完成 30 天周期（第 ${dn} 天）`:"周期尚未开始"} · <span id="sync" class="sync${cloud==="on"?" on":""}">${syncLabel()}</span></div></div>
+   <button class="icon-btn" data-act="next" aria-label="后一天" ${cur>=addDays(today(),7)?"disabled":""}>›</button></header>
+  <div class="seg" role="group" aria-label="今日状态">${segs}</div>
+  <section class="panel">
+   <div class="win"><div class="clock">${ws.w[0]}–${ws.w[1]}</div><div class="grow"><span id="winpill" class="pill ${ws.cls==="open"?"open":""}">${ws.txt}</span></div></div>
+   ${gauge("蛋白质",T.p,t.p[0],t.p[1],"pro","g",t.pf,ws.closed?2:1)}
+   ${gauge("碳水",T.c,t.c[0],t.c[1],"carb","g")}
+   ${gauge("脂肪",T.f,t.f[0],t.f[1],"fat","g")}
+   ${gauge("热量",T.k,t.k[0],t.k[1],"kcal","kcal")}
+   ${nextHint(day,cur,T,t,ws)}
+  </section>
+  ${tplCard(day)}
+  <section class="panel">
+   <div class="sec-title"><h2>记一口</h2><span class="muted small">点一下 = 1 份，下方可 ±半份</span></div>
+   <div class="tabs" role="group" aria-label="记到哪一餐">${mealTabs}</div>
+   <div class="tabs" role="group" aria-label="食物类别">${catTabs}</div>
+   <div class="chips">${chips}</div>
+   <div class="row"><input class="inp grow" id="cu-q" placeholder="或直接描述：一个手掌大的章鱼" value="${esc(cu.q)}" aria-label="描述吃了什么" enterkeyhint="go"><button class="btn primary" data-act="est" ${cu.busy?"disabled":""}>${cu.busy?"估算中…":"估算"}</button></div>
+   ${cu.open?`<div class="est">
+     <label class="field">名称<input id="cu-n" value="${esc(cu.n)}"></label>
+     <div class="grid4"><label class="field">蛋白 g<input id="cu-p" type="number" inputmode="decimal" min="0" value="${esc(cu.p)}"></label><label class="field">碳水 g<input id="cu-c" type="number" inputmode="decimal" min="0" value="${esc(cu.c)}"></label><label class="field">脂肪 g<input id="cu-f" type="number" inputmode="decimal" min="0" value="${esc(cu.f)}"></label><label class="field">热量 kcal<input id="cu-k" type="number" inputmode="numeric" min="0" value="${esc(cu.k)}" placeholder="${cuAuto()}"></label></div>
+     <div class="small muted">${cu.note?esc(cu.note)+" ":""}零食可以只填包装上的热量；热量留空则按三项克数自动算。</div>
+     <button class="btn primary" data-act="custom">记录，并存入“常吃”</button>
+    </div>`:`<button class="link" data-act="cuopen">不估算，手动填克数</button>`}
+  </section>
+  <section class="panel">
+   <div class="sec-title"><h2>今日记录</h2><span class="num muted">${r0(T.k)} kcal</span></div>
+   ${log||'<div class="empty">吃了什么，在上面点一下就记上。</div>'}
+  </section>
+  <section class="panel">
+   <div class="sec-title"><h2>喝水</h2><span class="num muted">${(day.water||0)*250} / 2000 ml</span></div>
+   <div class="row"><div class="cups grow">${cups}</div><div class="step"><button data-act="water" data-v="-1" aria-label="减一杯">−</button><button data-act="water" data-v="1" aria-label="加一杯 250 毫升">+</button></div></div>
+  </section>`;
+}
+
+function hedgePlan(day,extra){
+  const t=targets(day.state), T=totals(day); T.p+=extra.p;T.c+=extra.c;T.f+=extra.f;T.k+=kcalOf(extra);
+  const needP=Math.max(0,t.p[0]-T.p), por=needP<=8?0:needP<=38?1:2, dinnerK=por*145+90;
+  const remC=t.c[1]-T.c, remF=t.f[1]-T.f, remK=t.k[1]-T.k;
+  const fl=Math.max(0,Math.floor(Math.min(remC/33,(remK-dinnerK)/140)*2)/2);
+  const over=Math.max(0,-(remK-dinnerK-fl*140));
+  return {remC,remF,remK,fl,por,over,days:Math.min(5,Math.max(2,Math.ceil(over/80)))};
+}
+function viewHedge(){
+  const day=dayOf(cur), sel=FOODS.find(f=>f.id===hz.id);
+  const extra=sel?{p:sel.p*hz.q,c:sel.c*hz.q,f:sel.f*hz.q}:{p:0,c:0,f:0};
+  const show=sel||day.entries.some(e=>e.s);
+  const chips=FOODS.filter(f=>f.cat==="sweet").map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${f.n.replace(/ 1 .+$/,"")}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
+  let res='<div class="empty">点一款甜点，马上看到今晚怎么吃。</div>';
+  if(show){const h=hedgePlan(day,extra);
+    const bud=(v,u,l)=>`<div><b class="${v<0?"neg":""}">${v<0?"超 ":""}${r0(Math.abs(v))}</b><span>${l}${v<0?"":"还剩"} ${u}</span></div>`;
+    const pro=h.por===0?["✓","","已达标"]:h.por===1?["1","掌","瘦肉，或水冲 1 勺蛋白粉"]:["1+1","","先冲 1 勺蛋白粉，晚餐 1 掌瘦肉"];
+    res=`<div class="tiles">
+      <div class="tile ${h.fl<0.5?"zero":"go"}"><span class="k">主食</span><span class="v">${h.fl}<small>拳</small></span><span class="s">${h.fl<0.5?"今晚归零":"不用归零"}</span></div>
+      <div class="tile"><span class="k">蛋白</span><span class="v">${pro[0]}<small>${pro[1]}</small></span><span class="s">${pro[2]}</span></div>
+      <div class="tile"><span class="k">蔬菜</span><span class="v">2<small>捧</small></span><span class="s">绿叶菜撑饱</span></div></div>
+     <div class="verdict">${h.over>60?`<span class="pill warn">仍超 ${r0(h.over)} kcal → 接下来 ${h.days} 天每天少半拳主食</span>`:`<span class="pill good">吃完全天仍在额度内</span>`}
+      ${h.remF<8?'<span class="pill warn">今晚蒸煮，不加油</span>':""}<span class="pill">不加练，明早照常</span></div>
+     <div class="stats">${bud(h.remC,"g","碳水")}${bud(h.remF,"g","脂肪")}${bud(h.remK,"kcal","热量")}</div>`}
+  return `
+  <header class="top"><div class="date"><div class="d1">甜点对冲</div><div class="d2">${cur===today()?"今天":cur} · ${STATES[day.state].t}</div></div></header>
+  <section class="panel">
+   <div class="chips c3">${chips}</div>
+   ${sel?`<div class="row"><div class="grow"><b>${esc(sel.n)}</b> <span class="num muted">${r0(kcalOf(sel)*hz.q)} kcal</span></div>
+     <div class="step"><button data-act="hzq" data-v="-0.5" aria-label="减半份">−</button><span class="q">×${hz.q}</span><button data-act="hzq" data-v="0.5" aria-label="加半份">+</button></div></div>
+     <div class="row"><button class="btn primary grow" data-act="hzadd">吃了，记入今天</button><button class="btn" data-act="hzclear">不吃了</button></div>`:""}
+  </section>
+  <section class="panel">
+   <div class="sec-title"><h2>${sel?"如果吃它，今晚":"今晚"}</h2><span class="muted small">${sel?"预演，尚未记录":show?"按已记录的甜点":""}</span></div>
+   ${res}
+  </section>`;
+}
+
+function weekDates(d){const dt=parseD(d),wd=(dt.getDay()+6)%7,mon=addDays(d,-wd);return Array.from({length:7},(_,i)=>addDays(mon,i))}
+function weightSeries(){return Object.keys(S.days).filter(k=>S.days[k].weight>0).sort().map(k=>({d:k,w:S.days[k].weight}))}
+function chart(ser){
+  if(!ser.length) return '<div class="empty">记下第一个晨起体重后，这里会画出每日体重和 7 日均线。</div>';
+  const W=320,H=150,L=34,R=8,Tp=10,B=22, d0=ser[0].d, span=Math.max(6,diffDays(ser[ser.length-1].d,d0));
+  const ws=ser.map(s=>s.w), lo=Math.floor((Math.min(...ws)-0.3)*2)/2, hi=Math.ceil((Math.max(...ws)+0.3)*2)/2;
+  const x=d=>L+diffDays(d,d0)/span*(W-L-R), y=w=>Tp+(hi-w)/(hi-lo)*(H-Tp-B);
+  const avg=ser.map((s,i)=>{const win=ser.filter(q=>diffDays(s.d,q.d)>=0&&diffDays(s.d,q.d)<7);return {d:s.d,w:win.reduce((a,q)=>a+q.w,0)/win.length}});
+  const ticks=[lo,(lo+hi)/2,hi];
+  const last=avg[avg.length-1];
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="体重趋势图">
+   ${ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-5}" y="${y(v)+4}" text-anchor="end">${v.toFixed(1)}</text>`).join("")}
+   <text x="${L}" y="${H-5}">${d0.slice(5).replace("-","/")}</text><text x="${W-R}" y="${H-5}" text-anchor="end">${addDays(d0,span).slice(5).replace("-","/")}</text>
+   ${ser.map(s=>`<circle cx="${x(s.d)}" cy="${y(s.w)}" r="2.6" fill="var(--muted)" opacity=".55"/>`).join("")}
+   <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${avg.map(a=>x(a.d)+","+y(a.w)).join(" ")}"/>
+   <circle cx="${x(last.d)}" cy="${y(last.w)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/></svg>
+   <div class="small muted">灰点：每日体重　绿线：7 日均重</div>`;
+}
+function weightStats(ser){
+  const td=today(), avgIn=(a,b)=>{const xs=ser.filter(s=>{const n=diffDays(td,s.d);return n>=a&&n<b}).map(s=>s.w);return xs.length?xs.reduce((p,q)=>p+q,0)/xs.length:null};
+  const a1=avgIn(0,7), a0=avgIn(7,14), w0=S.settings.weight0;
+  let verdict="连续记 2 周晨重后，这里会判断减重速度是否合适。";
+  if(a1!=null&&a0!=null){const rate=a0-a1;
+    if(rate>0.7) verdict=`每周 −${rate.toFixed(2)} kg，<b>偏快</b>，容易掉肌肉。训练日加回 1 拳主食。`;
+    else if(rate>=0.25) verdict=`每周 −${rate.toFixed(2)} kg，<b>速度正好</b>（目标 0.3–0.6 kg/周），保持。`;
+    else if(rate>-0.15) verdict=`本周基本持平。先核对烹调油和零食有没有漏记；连续 2 周持平再把每天主食减半拳，或日均多走 2000 步。`;
+    else verdict=`本周均重上升 ${(-rate).toFixed(2)} kg。先看是否经期、高盐或睡眠差引起的水分波动，再看记录是否完整。`}
+  return `<div class="stats"><div><b>${a1!=null?a1.toFixed(1):"–"}</b><span>近 7 日均重 kg</span></div>
+   <div><b>${a1!=null?(a1-w0>0?"+":"")+(a1-w0).toFixed(1):"–"}</b><span>较起始 ${w0} kg</span></div>
+   <div><b>${a1!=null&&a0!=null?(a1-a0>0?"+":"")+(a1-a0).toFixed(2):"–"}</b><span>较上周 kg</span></div></div>
+   <div class="hint">${verdict}</div>`;
+}
+function viewLog(){
+  const day=dayOf(cur), wk=weekDates(cur), ser=weightSeries();
+  const done=wk.filter(d=>S.days[d]&&S.days[d].lift).length;
+  const week=wk.map(d=>{const x=dayOf(d);return `<div class="${x.lift?"done":""}${d===cur?" today":""}">周${WD[parseD(d).getDay()]}<b>${x.lift?"✓":x.state}</b></div>`}).join("");
+  const cal=Array.from({length:30},(_,i)=>{const d=addDays(S.settings.start,i),x=S.days[d];let c="";
+    if(x&&x.entries&&x.entries.length){const t=targets(x.state),T=totals(x);c=(T.p>=t.p[0]&&T.k<=t.k[1]+50)?"ok":"half"}
+    return `<i class="${c}${d===today()?" now":""}" title="${d}">${i+1}</i>`}).join("");
+  return `
+  <header class="top"><button class="icon-btn" data-act="prev" aria-label="前一天">‹</button>
+   <div class="date"><div class="d1">训练与体重</div><div class="d2">${cur===today()?"今天":cur} 周${WD[parseD(cur).getDay()]} · ${STATES[day.state].t}</div></div>
+   <button class="icon-btn" data-act="next" aria-label="后一天" ${cur>=addDays(today(),7)?"disabled":""}>›</button></header>
+  <section class="panel">
+   <div class="sec-title"><h2>本周训练</h2><span class="num muted">${done} / 4 次</span></div>
+   <div class="week">${week}</div>
+   <div class="grid2"><button class="btn${day.lift?" on":""}" data-act="lift" aria-pressed="${!!day.lift}">${day.lift?"✓ ":""}抗阻 40 分钟</button>
+    <button class="btn${day.cardio?" on":""}" data-act="cardio" aria-pressed="${!!day.cardio}">${day.cardio?"✓ ":""}爬坡 40 分钟</button></div>
+   <label class="field">训练笔记（动作 / 重量 / 次数，下次争取多 1 次或加 1 档）
+    <textarea class="inp" id="note" data-chg="note" placeholder="例：臀推 60kg 4×10；高位下拉 35kg 3×12">${esc(day.note||"")}</textarea></label>
+  </section>
+  <section class="panel">
+   <div class="sec-title"><h2>晨起体重</h2><span class="muted small">起床排空后、空腹称</span></div>
+   <div class="grid2"><label class="field">体重 kg<input id="w" data-chg="weight" type="number" inputmode="decimal" step="0.1" min="30" max="150" value="${day.weight||""}" placeholder="63.5"></label>
+    <label class="field">腰围 cm（每周 1 次）<input id="waist" data-chg="waist" type="number" inputmode="decimal" step="0.5" min="40" max="150" value="${day.waist||""}"></label></div>
+   ${weightStats(ser)}
+   ${chart(ser)}
+  </section>
+  <section class="panel">
+   <div class="sec-title"><h2>30 天打卡</h2><span class="muted small">深色 = 蛋白达标且热量不超</span></div>
+   <div class="cal">${cal}</div>
+  </section>`;
+}
+
+function aiBrief(){
+  const s=S.settings,tr=s.t.train,re=s.t.rest, td=today(); let rows="";
+  for(let i=6;i>=0;i--){const d=addDays(td,-i),x=S.days[d]; if(!x) continue; const T=totals(x);
+    rows+=`- ${d} ${STATES[x.state].t}：蛋白 ${r0(T.p)}g / 碳水 ${r0(T.c)}g / 脂肪 ${r0(T.f)}g / ${r0(T.k)} kcal${x.lift?"，已训练":""}${x.weight?"，晨重 "+x.weight+"kg":""}\n`}
+  return `# 个人刷脂交接档案（优化版）
+身体：起始 ${s.weight0} kg / 163.5 cm；目标 30 天刷脂、减脂保肌（周期起始 ${s.start}）。预期每周 −0.3~0.6 kg，以 7 日均重判断。
+训练：每周 4 天晨练（40 分钟抗阻 + 40 分钟爬坡），3 天休息。
+状态 A：11 点练完，进食 ${s.win.A[0]}–${s.win.A[1]}（16+8）；状态 B：9 点练完，进食 ${s.win.B[0]}–${s.win.B[1]}（14+10）；状态 C：休息日。
+训练日：蛋白 ${tr.p[0]}–${tr.p[1]}g（底线 ${tr.pf}g）、碳水 ${tr.c[0]}–${tr.c[1]}g、脂肪 ${tr.f[0]}–${tr.f[1]}g、${tr.k[0]}–${tr.k[1]} kcal。
+休息日：蛋白 ${re.p[0]}–${re.p[1]}g、碳水 ${re.c[0]}–${re.c[1]}g、脂肪 ${re.f[0]}–${re.f[1]}g、${re.k[0]}–${re.k[1]} kcal。
+规则：蛋白底线优先于断食窗口；每餐蛋白 25–40g，分 3 餐；碳水集中在练后第一餐。
+计量（必须用实物单位回答）：1 掌瘦肉≈30g 蛋白；1 拳主食≈33g 碳水；1/3 根法棍≈45g 碳水，半根≈70g；Bulk 蛋白粉 1 大勺≈23g 蛋白（牛奶另计）；无糖豆浆粉 1 袋≈6g 蛋白；蔬菜两捧起、少油不限量。
+甜点对冲：不批评，直接给当晚方案。先保蛋白，再从主食和油里腾额度；额度用完则当晚主食归零（1 掌瘦肉或水冲 1 勺蛋白粉 + 两捧蔬菜）；仍超出的部分用之后 2–4 天各少半拳主食摊平，不加练。
+练前担心低血糖可吃半根香蕉或 1 片吐司。
+
+最近 7 天记录：
+${rows||"（暂无）\n"}`;
+}
+function viewGuide(){
+  const s=S.settings;
+  const tin=(g,k,i)=>`<input id="t-${g}-${k}-${i}" data-set="${g}.${k}.${i}" type="number" inputmode="numeric" value="${s.t[g][k][i]}" aria-label="${g} ${k} ${i?"上限":"下限"}">`;
+  const trow=(g,label)=>`<h3>${label}</h3><div class="grid4">
+    <label class="field">蛋白下限${tin(g,"p",0)}</label><label class="field">蛋白上限${tin(g,"p",1)}</label>
+    <label class="field">碳水下限${tin(g,"c",0)}</label><label class="field">碳水上限${tin(g,"c",1)}</label>
+    <label class="field">脂肪下限${tin(g,"f",0)}</label><label class="field">脂肪上限${tin(g,"f",1)}</label>
+    <label class="field">热量下限${tin(g,"k",0)}</label><label class="field">热量上限${tin(g,"k",1)}</label></div>`;
+  const planSel=[1,2,3,4,5,6,0].map(i=>`<label class="field">周${WD[i]}<select id="pl-${i}" data-plan="${i}">${Object.keys(STATES).map(k=>`<option value="${k}" ${s.plan[i]===k?"selected":""}>${k==="C"?"休息":k}</option>`).join("")}</select></label>`).join("");
+  return `
+  <header class="top"><div class="date"><div class="d1">准则与设置</div><div class="d2">优化后的刷脂规则，数字都可以按体感微调</div></div></header>
+  <section class="panel" style="gap:0">
+   <details open><summary>这次优化改了什么</summary><ul>
+    <li><b>碳水上调约 25g。</b>原方案的三大营养素加起来只有约 1380 kcal（训练日）和 1190 kcal（休息日），比你写的热量目标低 150–250 kcal，休息日已低于估算基础代谢。现在克数和热量对得上。</li>
+    <li><b>休息日蛋白不再下调。</b>肌肉在休息日修复，缺口期蛋白全周保持 100–110g（约 1.6–1.7 g/kg）。</li>
+    <li><b>蛋白底线优先于断食窗口。</b>关窗后若蛋白低于 85g，水冲 1 勺蛋白粉，不算破戒。</li>
+    <li><b>对冲从“当晚清零”升级为“当晚 + 摊平”。</b>先保蛋白，超出的部分用 2–4 天各少半拳主食消化，不靠挨饿和加练。</li>
+    <li><b>用 7 日均重判断进度</b>，目标每周 −0.3~0.6 kg（体重的 0.5–1%），一个月约 1.5–2.5 kg。</li>
+    <li><b>牛奶和烹调油要记账。</b>250ml 全脂牛奶 ≈ 150 kcal，1 茶匙油 ≈ 45 kcal，这两项最常造成“吃得很干净却不掉秤”。</li></ul></details>
+   <details><summary>每日额度</summary><div class="tblwrap"><table>
+    <tr><th></th><th class="n">蛋白 g</th><th class="n">碳水 g</th><th class="n">脂肪 g</th><th class="n">kcal</th></tr>
+    <tr><td>训练日 A / B</td><td class="n">${s.t.train.p.join("–")}</td><td class="n">${s.t.train.c.join("–")}</td><td class="n">${s.t.train.f.join("–")}</td><td class="n">${s.t.train.k.join("–")}</td></tr>
+    <tr><td>休息日 C</td><td class="n">${s.t.rest.p.join("–")}</td><td class="n">${s.t.rest.c.join("–")}</td><td class="n">${s.t.rest.f.join("–")}</td><td class="n">${s.t.rest.k.join("–")}</td></tr></table></div>
+    <p>换成实物：训练日约 <b>3 掌蛋白 + 5 拳主食</b>；休息日约 <b>3 掌蛋白 + 4 拳主食</b>；蔬菜每餐两捧；全天烹调油 3–4 茶匙。脂肪不要长期低于 38g，激素和饱腹感都靠它。</p></details>
+   <details><summary>三种状态怎么吃</summary><ul>
+    <li><b>A（11 点练完，16+8）</b>：11:30 练后大餐（1 掌瘦肉 + 2 拳主食）；15:30 蛋白粉 + 法棍；19:00 收尾。</li>
+    <li><b>B（9 点练完，14+10）</b>：9:30 蛋白粉 + 法棍先接住；13:00 正餐；16:00 加餐；19:00 收尾。</li>
+    <li>每种状态的具体时间和份量见“今天”页的<b>参考餐单</b>，可一键填入。</li>
+    <li><b>C（休息日）</b>：主食少 1 拳，放在白天；蛋白照旧分 3 餐，蔬菜加量；日常多走到 8000 步。</li>
+    <li>每餐蛋白 25–40g。单餐多吃不会浪费，但分开吃更饱、更稳。</li>
+    <li>空腹练大重量前头晕手抖：半根香蕉或 1 片吐司，记在“加餐/练前”即可。</li></ul></details>
+   <details><summary>甜点对冲规则</summary><ul>
+    <li>甜点优先放在<b>训练日练后</b>那一餐，糖原最空。</li>
+    <li>先保蛋白底线，再从主食和烹调油里腾额度；额度用完当晚主食归零。</li>
+    <li>仍超出的部分用 2–5 天各少半拳主食摊平，不加练、不饿肚子。</li>
+    <li>每周主动安排 1–2 次甜点，比忍到失控再补偿更稳。</li></ul></details>
+   <details><summary>训练要点</summary><ul>
+    <li>先抗阻后爬坡。抗阻决定保不保得住肌肉，放在体力最好的时候。</li>
+    <li>4 天建议：臀腿 / 上肢推拉 / 后链（硬拉、臀推）/ 全身。每个动作 3–4 组、每组 8–12 次，留 1–2 次余力。</li>
+    <li>刷脂期目标是<b>守住重量</b>。每次在笔记里记重量和次数，力量连续两周下滑就是吃太少或睡太少的信号。</li>
+    <li>爬坡用能说短句的强度（坡度 8–12、速度 4.5–5.5）。累的那天把 40 分钟减到 25 分钟，不要取消抗阻。</li>
+    <li>睡够 7 小时。睡眠不足会让食欲上升、掉的更多是肌肉。</li></ul></details>
+   <details><summary>实物计量表</summary><div class="tblwrap"><table>
+    <tr><th>食物</th><th>一份</th><th class="n">约等于</th></tr>
+    <tr><td>瘦肉 / 虾 / 白身鱼</td><td>1 掌心，厚 1.5cm，熟重 120–130g</td><td class="n">30g 蛋白</td></tr>
+    <tr><td>米饭 / 杂粮 / 紫薯</td><td>1 拳，熟重 100–130g</td><td class="n">30–35g 碳水</td></tr>
+    <tr><td>法棍</td><td>1/3 根（手掌长 80g）/ 半根</td><td class="n">45g / 70g 碳水</td></tr>
+    <tr><td>Bulk 蛋白粉</td><td>1 大勺，水冲</td><td class="n">22–25g 蛋白</td></tr>
+    <tr><td>无糖豆浆粉</td><td>1 袋</td><td class="n">6g 蛋白</td></tr>
+    <tr><td>蔬菜</td><td>两双手捧起，少油</td><td class="n">不限量</td></tr>
+    <tr><td>烹调油</td><td>1 茶匙 5g</td><td class="n">5g 脂肪</td></tr></table></div></details>
+   <details><summary>什么时候调整</summary><ul>
+    <li>7 日均重每周掉超过 0.7 kg：训练日加 1 拳主食。</li>
+    <li>连续 2 周持平且记录完整：每天少半拳主食，或日均多走 2000 步。二选一，不叠加。</li>
+    <li>连续几天睡不好、训练没劲、总想吃甜：先连续 2 天吃到维持热量（每天多 2 拳主食），再回到计划。</li>
+    <li>30 天结束后用 1–2 周把主食每周加回 1 拳，回到维持量，再决定是否进入下一轮。</li>
+    <li>经期前后体重上浮 0.5–1.5 kg 属正常水分波动，看均线不看单日。</li></ul>
+    <p class="muted small">以上为一般性健康建议，热量目标按常见公式估算。如有基础疾病、月经紊乱或持续乏力，请先咨询医生或注册营养师。</p></details>
+  </section>
+  <section class="panel"><h2>设置</h2>
+   <div class="grid2"><label class="field">周期开始日<input id="st-start" data-set="start" type="date" value="${s.start}"></label>
+    <label class="field">起始体重 kg<input id="st-w0" data-set="weight0" type="number" inputmode="decimal" step="0.1" value="${s.weight0}"></label></div>
+   <h3>每周默认安排</h3><div class="grid4">${planSel}</div>
+   ${trow("train","训练日额度")}${trow("rest","休息日额度")}
+  </section>
+  <section class="panel"><h2>交给 AI / 备份</h2>
+   <p class="muted small" style="margin:0">复制后粘贴给任意 AI，就能带着最新规则和近 7 天记录继续聊餐食评估。</p>
+   <div class="row"><button class="btn primary grow" data-act="copyai">复制 AI 交接档案</button><button class="btn" data-act="export">导出备份</button></div>
+   <textarea class="inp" id="io" placeholder="导出的备份会出现在这里；换设备时把备份粘贴进来再点“导入”。" aria-label="备份数据"></textarea>
+   <div class="row"><button class="btn" data-act="import">导入备份</button><span class="muted small grow">${cloud==="on"?"数据已保存到你的 Claude 账号，换手机打开同一链接即可。":"数据目前只保存在这台设备的浏览器里，建议定期导出。"}</span></div>
+  </section>`;
+}
+
+/* ---------- render + events ---------- */
+const NAV=[["today","今天",'<path d="M4 11h16M6 11a6 6 0 0 0 12 0M12 5v2M8 4.5v2M16 4.5v2M9 20h6"/>'],
+ ["hedge","对冲",'<path d="M12 4v16M5 8h14M5 8l-2.5 6a3 3 0 0 0 5 0L5 8zM19 8l-2.5 6a3 3 0 0 0 5 0L19 8zM8 20h8"/>'],
+ ["log","记录",'<path d="M3 12h2m14 0h2M6 8v8M18 8v8M9 6v12M15 6v12M9 12h6"/>'],
+ ["guide","准则",'<path d="M6 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V4zM6 16h12M9.5 8h5M9.5 11.5h5"/>']];
+function render(){
+  const app=document.getElementById("app");
+  app.innerHTML=tab==="today"?viewToday():tab==="hedge"?viewHedge():tab==="log"?viewLog():viewGuide();
+  document.getElementById("nav").innerHTML=NAV.map(n=>`<button data-tab="${n[0]}" ${tab===n[0]?'aria-current="page"':""}><svg viewBox="0 0 24 24" aria-hidden="true">${n[2]}</svg>${n[1]}</button>`).join("");
+}
+let toastT=0;
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},1600)}
+function addFood(f,q,m){mut(cur,d=>{const ex=d.entries.find(e=>e.fid===f.id&&e.m===m); if(ex) ex.q=r1(ex.q+q); else {const e={id:uid(),fid:f.id,n:f.n,q:q,p:f.p,c:f.c,f:f.f,m:m,s:f.cat==="sweet"?1:0};if(f.k!=null)e.k=f.k;d.entries.push(e)}})}
+function copyText(txt,okMsg){const fb=()=>{const io=document.getElementById("io");if(io){io.value=txt;io.focus();io.select();toast("已放入下方文本框，请长按复制")}};
+  try{navigator.clipboard.writeText(txt).then(()=>toast(okMsg),fb)}catch(e){fb()}}
+
+document.addEventListener("click",ev=>{
+  const tb=ev.target.closest("[data-tab]"); if(tb){tab=tb.dataset.tab;try{localStorage.setItem(LS+".tab",tab)}catch(e){};render();window.scrollTo(0,0);return}
+  const b=ev.target.closest("[data-act]"); if(!b) return; const a=b.dataset.act, v=b.dataset.v;
+  if(a==="prev"){cur=addDays(cur,-1)} else if(a==="next"){if(cur<addDays(today(),7))cur=addDays(cur,1)}
+  else if(a==="state"){mut(cur,d=>{d.state=v})}
+  else if(a==="meal"){meal=+v} else if(a==="cat"){cat=v;myEdit=false}
+  else if(a==="add"){const f=findFood(v);if(!f)return;addFood(f,1,meal);toast("已记录 "+f.n)}
+  else if(a==="inc"||a==="dec"){mut(cur,d=>{const e=d.entries.find(x=>x.id===v);if(!e)return;e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)})}
+  else if(a==="tpl"){TPL[dayOf(cur).state].forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1])));toast("已填入，按实际增减")}
+  else if(a==="est"){estimate();return}
+  else if(a==="cuopen"){cu.open=true;if(!cu.n)cu.n=cu.q.trim()}
+  else if(a==="custom"){const n=String(cu.n).trim(),g=x=>Math.max(0,parseFloat(x)||0);
+    const p=g(cu.p),c=g(cu.c),f=g(cu.f),k=String(cu.k).trim()===""?null:r0(g(cu.k)); if(!n||!(p+c+f+(k||0))){toast("填上名称，以及热量或至少一项克数");return}
+    const nm=n.slice(0,40), my=S.settings.my||(S.settings.my=[]); let item=my.find(x=>x.n===nm);
+    if(!item){item={id:"my-"+uid(),cat:"my",n:nm};my.unshift(item);if(my.length>60)my.length=60}
+    item.p=p;item.c=c;item.f=f; if(k!=null)item.k=k; else delete item.k; touch("settings");
+    addFood(item,1,meal);cu=cuBlank();toast("已记录，并存入“常吃”")}
+  else if(a==="myedit"){myEdit=!myEdit}
+  else if(a==="mydel"){S.settings.my=(S.settings.my||[]).filter(x=>x.id!==v);touch("settings")}
+  else if(a==="water"){mut(cur,d=>{d.water=Math.max(0,Math.min(16,(d.water||0)+ +v))})}
+  else if(a==="hz"){hz={id:hz.id===v?null:v,q:1}} else if(a==="hzq"){hz.q=Math.max(0.5,r1(hz.q+ +v))}
+  else if(a==="hzclear"){hz={id:null,q:1}}
+  else if(a==="hzadd"){const f=FOODS.find(x=>x.id===hz.id);if(f){addFood(f,hz.q,4);hz={id:null,q:1};toast("已记入今天")}}
+  else if(a==="lift"||a==="cardio"){mut(cur,d=>{d[a]=!d[a]})}
+  else if(a==="copyai"){copyText(aiBrief(),"已复制，粘贴给 AI 即可");return}
+  else if(a==="export"){copyText(JSON.stringify(S),"备份已复制");const io=document.getElementById("io");io.value=JSON.stringify(S);return}
+  else if(a==="import"){try{const o=JSON.parse(document.getElementById("io").value);if(!o||!o.settings||!o.days)throw 0;
+      S.settings=Object.assign(defaults(),o.settings);S.days=o.days;touch("settings");Object.keys(S.days).forEach(k=>touch(k));toast("已导入")}catch(e){toast("备份内容不完整，请粘贴完整的导出文本");return}}
+  render();
+});
+document.addEventListener("input",ev=>{const m=/^cu-([qnpcfk])$/.exec(ev.target.id||""); if(m){cu[m[1]]=ev.target.value;const k=document.getElementById("cu-k");if(k)k.placeholder=cuAuto()}});
+document.addEventListener("keydown",ev=>{ if(ev.key==="Enter"&&ev.target.id==="cu-q"){ev.preventDefault();estimate()} });
+document.addEventListener("change",ev=>{
+  const el=ev.target;
+  if(el.dataset.chg){const k=el.dataset.chg;
+    if(k==="note"){mut(cur,d=>{d.note=el.value.slice(0,2000)});return}
+    const n=parseFloat(el.value); mut(cur,d=>{if(n>0)d[k]=r1(n);else delete d[k]}); render(); return}
+  if(el.dataset.set){const path=el.dataset.set.split(".");
+    if(path.length===1){ if(path[0]==="start"){if(/^\d{4}-\d{2}-\d{2}$/.test(el.value))S.settings.start=el.value} else {const n=parseFloat(el.value);if(n>0)S.settings.weight0=r1(n)} }
+    else{const n=parseFloat(el.value); if(n>0) S.settings.t[path[0]][path[1]][+path[2]]=r0(n)}
+    touch("settings"); toast("已保存"); return}
+  if(el.dataset.plan!=null){S.settings.plan[+el.dataset.plan]=el.value;touch("settings");toast("已保存")}
+});
+setInterval(()=>{ if(tab!=="today"||cur!==today()) return; const p=document.getElementById("winpill"); if(!p) return;
+  const ws=winStatus(dayOf(cur),cur); p.textContent=ws.txt; p.className="pill "+(ws.cls==="open"?"open":"") },30000);
+
+render();
+initCloud();
+})();
+</script>

@@ -2,6 +2,8 @@
 
 手机端使用的 30 天刷脂记录工具，单文件 `index.html`，无需安装和构建。
 
+需求、规则和功能模块的完整说明见 [docs/SPEC.md](docs/SPEC.md)。源码在 `src/on-a-cut.html`，`index.html` 由 `sh build.sh src/on-a-cut.html index.html` 生成。
+
 ## 怎么用
 
 - 直接用手机浏览器打开 `index.html`；或在仓库 Settings → Pages 里把分支设为发布源，用 GitHub Pages 的网址访问，并“添加到主屏幕”。
