@@ -1,4 +1,4 @@
 {
   "private": true,
-  "main": "engine.test.js"
+  "main": "run-all.js"
 }

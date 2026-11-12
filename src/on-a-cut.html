@@ -415,7 +415,8 @@ function viewToday(){
   const chips=cat==="my"
    ? my.map(f=>`<button class="chip${myEdit?" del":""}" data-act="${myEdit?"mydel":"add"}" data-v="${f.id}"><span class="n">${myEdit?"✕ ":""}${esc(f.n)}</span><span class="m">${r0(kcalOf(f))} kcal · 蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
      +`<button class="link" data-act="myedit" style="grid-column:1/-1">${myEdit?"完成":"整理常吃（删除不再吃的）"}</button>`
-   : FOODS.filter(f=>f.cat===cat).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("");
+   : FOODS.filter(f=>f.cat===cat&&f.top).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
+     +`<div class="muted small" style="grid-column:1/-1">更多食物下一版可搜索</div>`;
   let log="";
   [1,2,3,4].forEach(i=>{const es=day.entries.filter(e=>e.m===i); if(!es.length) return; const mt=totals(day,i), note=mealNote(st,i,mt,es);
     log+=`<div class="meal-h"><span><b>${MEALS[i]}</b></span><span class="num">蛋白 ${r0(mt.p)}g · ${r0(mt.k)} kcal</span></div><div class="mnote ${note[0]}">${note[1]}</div>`+
@@ -466,7 +467,7 @@ function viewHedge(){
   if(sel){T.p+=sel.p*hz.q;T.c+=sel.c*hz.q;T.f+=sel.f*hz.q;T.k+=kcalOf(sel)*hz.q}
   const show=sel||day.entries.some(e=>e.s);
   const opts=FOODS.filter(f=>f.cat==="sweet").concat(S.settings.my.filter(f=>f.s));
-  const chips=opts.map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${esc(f.cat==="sweet"?f.n.replace(/ 1 .+$/,""):f.n)}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
+  const chips=opts.map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${esc(f.base?f.base.n:f.n)}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
   let res='<div class="empty">点一款甜点，马上看到今晚怎么吃。</div>';
   if(show){const a=advise({T,t,mealsLeft:1,windowClosed:false,kOnly:kOnly(day)||(!!sel&&kOnlyE(sel))});
     const bud=(v,u,l)=>`<div><b class="${v<0?"neg":""}">${v<0?"超 ":""}${r0(Math.abs(v))}</b><span>${l}${v<0?"":"还剩"} ${u}</span></div>`;

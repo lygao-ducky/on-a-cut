@@ -1,4 +1,4 @@
-/* On a Cut 计算引擎：纯函数，无 DOM、无存储。浏览器里挂在 window.OnACutEngine，Node 里走 module.exports。 */
+/* On a Cut 计算引擎：纯函数，无 DOM、无存储。食物数据来自 src/foods.js（要先加载）。浏览器里挂在 window.OnACutEngine，Node 里走 module.exports。 */
 (function(root){
 "use strict";
 /* ---------- helpers ---------- */
@@ -15,41 +15,66 @@ const mins=s=>{const a=s.split(":").map(Number);return a[0]*60+a[1]};
 const hm=m=>z(Math.floor(m/60))+":"+z(m%60);
 const qty=(q,u)=>q===0.5?"半"+u:(q%1?Math.floor(q)+" "+u+"半":q+" "+u);
 
-/* ---------- food library (估算值，按实物单位) ---------- */
-const FOODS=[
- {id:"lean",cat:"pro",n:"瘦肉 1 掌",p:30,c:0,f:3},
- {id:"beef",cat:"pro",n:"瘦牛肉 1 掌",p:30,c:0,f:8},
- {id:"salmon",cat:"pro",n:"三文鱼 1 掌",p:25,c:0,f:15},
- {id:"whey",cat:"pro",n:"蛋白粉 1 大勺",p:23,c:2,f:2},
- {id:"egg",cat:"pro",n:"鸡蛋 1 个",p:6.5,c:0.5,f:5},
- {id:"milk",cat:"pro",n:"全脂牛奶 250ml",p:8,c:12,f:9},
- {id:"lmilk",cat:"pro",n:"低脂牛奶 250ml",p:8.5,c:12.5,f:4},
- {id:"soy",cat:"pro",n:"无糖豆浆粉 1 袋",p:6,c:3,f:3},
- {id:"yog",cat:"pro",n:"无糖希腊酸奶 150g",p:13,c:6,f:3},
- {id:"tofu",cat:"pro",n:"豆腐 半盒",p:12,c:3,f:7},
- {id:"rice",cat:"carb",n:"米饭/杂粮饭 1 拳",p:3,c:33,f:0.5},
- {id:"yam",cat:"carb",n:"紫薯/红薯 1 拳",p:2,c:30,f:0},
- {id:"bag3",cat:"carb",n:"法棍 1/3 根",p:7,c:45,f:1},
- {id:"bag2",cat:"carb",n:"法棍 半根",p:11,c:70,f:1.5},
- {id:"toast",cat:"carb",n:"吐司 1 片",p:3,c:14,f:1},
- {id:"oat",cat:"carb",n:"燕麦 20g",p:2.5,c:13,f:1.5},
- {id:"noodle",cat:"carb",n:"面条 1 拳",p:4,c:30,f:0.5},
- {id:"banana",cat:"veg",n:"香蕉 半根",p:0.5,c:12,f:0},
- {id:"fruit",cat:"veg",n:"水果 1 拳",p:0.5,c:15,f:0},
- {id:"veg",cat:"veg",n:"蔬菜 两捧",p:3,c:8,f:0},
- {id:"oil",cat:"fat",n:"烹调油 1 茶匙",p:0,c:0,f:5},
- {id:"nuts",cat:"fat",n:"坚果 1 小把",p:3,c:3,f:8},
- {id:"avo",cat:"fat",n:"牛油果 半个",p:1.5,c:2,f:11},
- {id:"flan",cat:"sweet",n:"Flan 1 块",p:5,c:38,f:12},
- {id:"crois",cat:"sweet",n:"黄油可颂 1 个",p:5,c:26,f:14},
- {id:"pac",cat:"sweet",n:"巧克力可颂 1 个",p:6,c:32,f:17},
- {id:"cookie",cat:"sweet",n:"曲奇 1 大块",p:2.5,c:28,f:11},
- {id:"cake",cat:"sweet",n:"蛋糕 1 片",p:4,c:40,f:16},
- {id:"ice",cat:"sweet",n:"冰淇淋 1 球",p:2,c:16,f:7},
- {id:"tea",cat:"sweet",n:"奶茶 1 杯",p:3,c:45,f:8}
-];
-const FBY={}; FOODS.forEach(f=>{FBY[f.id]=f});
-const CATS=[["pro","蛋白质"],["carb","主食"],["veg","蔬果"],["fat","油脂"],["sweet","甜点"]];
+/* ---------- 食物库：数据在 src/foods.js，这里展开成显示用的表 ----------
+   FOODS 只含基准份量（显示名 = 名称 + 第一个份量）；FBY 另含每个非基准份量的变体，id 为 <基准 id>@<份量 k>。 */
+const FD=root.OnACutFoods||(typeof require!=="undefined"?require("./foods.js"):null);
+if(!FD||!FD.FOODS) throw new Error("OnACutEngine: 找不到食物库，foods.js 要先于 engine.js 加载");
+const CATS=FD.CATS, FOODS=[], FBY={};
+FD.FOODS.forEach(b=>{
+  const f={id:b.id,cat:b.cat,n:b.n+" "+b.u[0].l,p:b.p,c:b.c,f:b.f,g:b.g,tags:b.tags,base:b};
+  if(b.k!=null) f.k=b.k; if(b.top) f.top=b.top;
+  FOODS.push(f); FBY[f.id]=f;
+  b.u.slice(1).forEach(u=>{
+    const v={id:b.id+"@"+u.k,cat:b.cat,n:b.n+" "+u.l,p:r1(b.p*u.x),c:r1(b.c*u.x),f:r1(b.f*u.x),g:b.g,tags:b.tags,baseOf:b.id};
+    if(b.k!=null) v.k=r1(b.k*u.x);
+    FBY[v.id]=v;
+  });
+});
+const baseId=fid=>String(fid||"").split("@")[0];
+/* 某食物的全部份量（FBY 对象），基准在前 */
+const portionsOf=id=>{const f=FBY[id]; return f&&f.base?[f].concat(f.base.u.slice(1).map(u=>FBY[id+"@"+u.k])):[]};
+/* 给没有分类的自定义食物猜分类；不会猜出 veg */
+function guessCat(f){
+  if(f.s) return "sweet";
+  const P=4*(+f.p||0), F=9*(+f.f||0), tot=P+4*(+f.c||0)+F;
+  if(!(tot>0)) return "carb";
+  return P/tot>=0.4?"pro":F/tot>=0.5?"fat":"carb";
+}
+/* 搜索：q 去空格转小写；候选 = 内置基准食物 + opts.my（自定义，只按名称）。返回 [{food, score}] */
+const normQ=s=>String(s==null?"":s).replace(/\s+/g,"").toLowerCase();
+function searchFoods(q,opts){
+  q=normQ(q); if(!q) return [];
+  opts=opts||{};
+  const ascii=/^[a-z]+$/.test(q), fav=opts.fav||[], limit=opts.limit||8, rc={}, src=opts.recent||{};
+  Object.keys(src).forEach(k=>{const b=baseId(k); rc[b]=(rc[b]||0)+(+src[k]||0)});
+  const match=(name,al,py)=>{
+    let s=name===q?100:name.startsWith(q)?80:al.includes(q)?75:name.includes(q)?60:al.some(x=>x.includes(q))?50:0;
+    if(ascii&&py) s=Math.max(s,py.startsWith(q)?45:(q.length>1&&py.includes(q))?30:0);
+    return s;
+  };
+  const out=[], push=(food,id,name,s,extra)=>{
+    if(!s) return;
+    out.push({food,score:s+Math.min(15,3*(rc[id]||0))+(fav.includes(id)?8:0)+extra,len:name.length});
+  };
+  FOODS.forEach(f=>{const b=f.base, name=normQ(b.n); push(f,f.id,name,match(name,b.a.map(normQ),b.py),0)});
+  (opts.my||[]).forEach(f=>{const name=normQ(f.n); push(f,f.id,name,match(name,[],name.replace(/[^a-z]/g,"")),5)});
+  out.sort((a,b)=>b.score-a.score||a.len-b.len);
+  return out.slice(0,limit).map(x=>({food:x.food,score:x.score}));
+}
+/* 最近吃过：todayStr 之前 14 天（不含当天）的条目，按 fid（没有就按名称）分组，快照取最近一次的条目本身 */
+function recentFoods(days,todayStr,n){
+  n=n==null?8:n;
+  const from=addDays(todayStr,-14), by={};
+  Object.keys(days||{}).filter(d=>d>=from&&d<todayStr).sort().forEach(d=>{
+    ((days[d]||{}).entries||[]).forEach(e=>{
+      const key=e.fid?"f:"+e.fid:"n:"+e.n, g=by[key]||(by[key]={count:0});
+      g.count++; g.last=d;
+      g.food={id:e.fid||("rc-"+e.n),n:e.n,p:e.p,c:e.c,f:e.f,s:e.s?1:0,cat:"recent"};
+      if(e.k!=null) g.food.k=e.k;
+    });
+  });
+  return Object.keys(by).map(k=>by[k]).sort((a,b)=>b.count-a.count||(a.last<b.last?1:a.last>b.last?-1:0)).slice(0,n).map(g=>g.food);
+}
 const MEALS=["","第 1 餐","第 2 餐","第 3 餐","加餐"];
 
 /* ---------- Mifflin-St Jeor BMR → TDEE → 目标 ---------- */
@@ -89,7 +114,7 @@ function totals(day,m){const t={p:0,c:0,f:0,k:0};(day.entries||[]).forEach(e=>{i
 /* 统一口径：蛋白到下限且热量不超上限，算“达标的一天” */
 const dayOk=(T,t)=>T.p>=t.p[0]&&T.k<=t.k[1];
 function mealNote(st,i,mt,es){
-  const w=[], hasVeg=es.some(e=>e.fid==="veg"), sweet=es.some(e=>e.s);
+  const w=[], hasVeg=es.some(e=>baseId(e.fid)==="veg"), sweet=es.some(e=>e.s);
   if(i===4){ if(mt.k>250) w.push(`加餐 ${r0(mt.k)} kcal 偏多，正餐主食相应少半拳`); else if(sweet) w.push("甜点已计入额度");
     return w.length?["warn",w.join("；")+"。"]:["good","✓ 份量合适。"] }
   if(mt.p<25) w.push(`蛋白只有 ${r0(mt.p)}g，再加半掌肉或 1 个蛋`);
@@ -156,6 +181,7 @@ function advise(i){
 }
 
 const E={r0,r1,half,mid,z,ymd,parseD,addDays,diffDays,kcalOf,clone,FOODS,FBY,CATS,MEALS,MODES,ACT,
-  compute,pfError,planFor,totals,mealNote,qty,hm,mins,buildTpl,dayOk,advise};
+  compute,pfError,planFor,totals,mealNote,qty,hm,mins,buildTpl,dayOk,advise,
+  baseId,portionsOf,guessCat,searchFoods,recentFoods};
 if(typeof module!=="undefined"&&module.exports) module.exports=E; else root.OnACutEngine=E;
 })(typeof self!=="undefined"?self:this);

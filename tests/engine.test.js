@@ -128,3 +128,86 @@ test("advise：500 组随机输入的不变量", ()=>{
     assert.equal(a.flags.includes("kOnly"),inp.kOnly,ctx);
   }
 });
+
+/* ---------- 批次 2A：食物搜索、最近吃过、份量、分类猜测 ---------- */
+const {searchFoods,recentFoods,portionsOf,guessCat,baseId,FBY,mealNote}=E;
+const ids=r=>r.map(x=>x.food.id);
+test("searchFoods：名称、别名、拼音首字母", ()=>{
+  assert.equal(searchFoods("米饭")[0].food,FBY.rice);
+  assert.equal(searchFoods(" 米 饭 ")[0].food.id,"rice");
+  assert.ok(ids(searchFoods("mf")).slice(0,3).includes("rice"));
+  assert.equal(searchFoods("jxr")[0].food.id,"chicken");
+  assert.equal(searchFoods("JXR")[0].food.id,"chicken");
+  assert.ok(ids(searchFoods("黄焖")).includes("hmj"));
+  assert.deepEqual(searchFoods(""),[]); assert.deepEqual(searchFoods("   "),[]); assert.deepEqual(searchFoods(undefined),[]);
+  const x=searchFoods("x",{limit:50});
+  assert.ok(x.length>0); for(const r of x) assert.ok(r.food.base.py.startsWith("x"),r.food.n);
+  assert.equal(searchFoods("西红柿")[0].food.id,"tomato");            // 别名完全相等
+  assert.equal(searchFoods("flan")[0].food.id,"flan");               // 名称里的英文
+  assert.deepEqual(searchFoods("没有这种东西"),[]);
+});
+test("searchFoods：排序、条数、加分", ()=>{
+  const all=searchFoods("j",{limit:50});
+  assert.equal(searchFoods("j").length,8); assert.equal(searchFoods("j",{limit:3}).length,3);
+  for(let i=1;i<all.length;i++) assert.ok(all[i-1].score>all[i].score||(all[i-1].score===all[i].score&&all[i-1].food.base.n.length<=all[i].food.base.n.length));
+  const r=ids(searchFoods("j",{recent:{egg:5},limit:50}));
+  assert.equal(r[0],"egg"); assert.ok(r.includes("chicken")&&r.indexOf("egg")<r.indexOf("chicken"));
+  // recent 按基准 id 合并，每次 +3，最多 +15
+  const plain=searchFoods("鸡蛋")[0].score;
+  assert.equal(searchFoods("鸡蛋",{recent:{egg:1,"egg@two":2}})[0].score,plain+9);
+  assert.equal(searchFoods("鸡蛋",{recent:{egg:40}})[0].score,plain+15);
+  assert.equal(searchFoods("牛奶",{fav:["lmilk"]})[0].food.id,"lmilk");
+  assert.equal(searchFoods("牛奶")[0].food.id,"milk");
+});
+test("searchFoods：自定义食物", ()=>{
+  const my=[{id:"my-1",n:"我的蛋白粉"},{id:"my-2",n:"Bulk 乳清"}];
+  const r=searchFoods("蛋白粉",{my});
+  assert.equal(r[0].food.id,"whey");
+  const hit=r.find(x=>x.food===my[0]); assert.ok(hit); assert.equal(hit.score,65);   // 名称包含 60 + 自定义 5
+  assert.equal(searchFoods("蛋白粉",{my,fav:["my-1"],recent:{"my-1":2}}).find(x=>x.food===my[0]).score,79);
+  assert.equal(searchFoods("bulk",{my})[0].food,my[1]);              // 名称里的英文字母参与匹配
+  assert.equal(searchFoods("bu",{my})[0].food,my[1]);
+});
+test("recentFoods：14 天内、不含当天、快照取自条目", ()=>{
+  const e=(fid,n,x)=>Object.assign({id:"e"+Math.random(),n,q:1,p:1,c:2,f:3,m:1,s:0},fid?{fid}:{},x||{});
+  const days={
+    "2026-11-12":{entries:[e("today","今天吃的")]},
+    "2026-11-11":{entries:[e("my-gone","已删除的自定义",{p:20,c:5,f:1,k:111,s:1}),e("rice","米饭/杂粮饭 1 拳"),e(null,"手输的东西")]},
+    "2026-11-10":{entries:[e("rice","米饭/杂粮饭 1 拳"),e("egg","鸡蛋 1 个")]},
+    "2026-11-05":{entries:[e("my-gone","旧名字",{p:9}),e("egg","鸡蛋 1 个")]},
+    "2026-10-29":{entries:[e("edge","刚好第 14 天")]},
+    "2026-10-28":{entries:[e("old","太久以前")]},
+    "2026-11-13":{entries:[e("future","明天排的")]},
+    "2026-11-01":{}
+  };
+  const r=recentFoods(days,"2026-11-12");
+  const by=Object.fromEntries(r.map(f=>[f.id,f]));
+  assert.ok(!by.today&&!by.old&&!by.future); assert.ok(by.edge);
+  // 已不在食物库的也能返回，数值取最近一次的条目
+  assert.deepEqual(by["my-gone"],{id:"my-gone",n:"已删除的自定义",p:20,c:5,f:1,s:1,cat:"recent",k:111});
+  assert.deepEqual(by["rc-手输的东西"],{id:"rc-手输的东西",n:"手输的东西",p:1,c:2,f:3,s:0,cat:"recent"});
+  assert.equal("k" in by.rice,false);
+  // 三个都出现 2 次：最近日期新的在前（my-gone 和 rice 同为 11-11，egg 是 11-10）
+  assert.deepEqual(r.slice(0,3).map(f=>f.id).sort(),["egg","my-gone","rice"]);
+  assert.equal(r[2].id,"egg");
+  assert.equal(r.length,5);
+  assert.equal(recentFoods(days,"2026-11-12",2).length,2);
+  assert.deepEqual(recentFoods({},"2026-11-12"),[]);
+});
+test("portionsOf / baseId / guessCat", ()=>{
+  const ps=portionsOf("rice");
+  assert.equal(ps[0],FBY.rice); assert.deepEqual(ps.map(f=>f.id),["rice","rice@bowl","rice@g100"]);
+  assert.deepEqual(portionsOf("不存在"),[]); assert.deepEqual(portionsOf("rice@bowl"),[]);
+  assert.equal(baseId("rice@bowl"),"rice"); assert.equal(baseId("rice"),"rice"); assert.equal(baseId(undefined),"");
+  assert.equal(guessCat({p:22,c:3,f:2}),"pro");
+  assert.equal(guessCat({p:3,c:3,f:15}),"fat");
+  assert.equal(guessCat({p:2,c:40,f:5}),"carb");
+  assert.equal(guessCat({p:0,c:0,f:0,k:200}),"carb");
+  assert.equal(guessCat({p:5,c:40,f:10,s:1}),"sweet");
+});
+test("mealNote：蔬菜的份量变体也算有蔬菜", ()=>{
+  const mt={p:30,c:40,f:10,k:370};
+  assert.match(mealNote("A",2,mt,[{fid:"lean",s:0}])[1],/缺蔬菜/);
+  assert.doesNotMatch(mealNote("A",2,mt,[{fid:"veg",s:0}])[1],/缺蔬菜/);
+  assert.doesNotMatch(mealNote("A",2,mt,[{fid:"veg@one",s:0}])[1],/缺蔬菜/);
+});
