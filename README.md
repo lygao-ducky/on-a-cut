@@ -2,7 +2,7 @@
 
 手机上用的饮食与训练记录工具：按“掌、拳、勺”记录，自动计算每日热量和三大营养素目标。纯前端单文件，无需后端。
 
-需求、计算规则和功能模块见 [docs/SPEC.md](docs/SPEC.md)。源码在 `src/on-a-cut.html`，`index.html` 由 `sh build.sh src/on-a-cut.html index.html` 生成。
+需求、计算规则和功能模块见 [docs/SPEC.md](docs/SPEC.md)。源码在 `src/engine.js`（计算引擎）和 `src/on-a-cut.html`（页面），`dist/page.html` 与 `index.html` 由 `sh build.sh` 生成；测试用 `node --test tests/`。
 
 ## 部署到 GitHub Pages
 

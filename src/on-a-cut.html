@@ -24,6 +24,7 @@
   --good:#63C990; --warn:#F09A5B; --warn-soft:#3A281B; color-scheme:dark }
 
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--text);font-size:15px;line-height:1.5;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   padding-block:12px calc(84px + env(safe-area-inset-bottom,0px));-webkit-text-size-adjust:100%}
@@ -189,7 +190,9 @@ nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(
 nav button{border:0;background:transparent;border-radius:10px;min-height:48px;color:var(--muted);font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:99px;font-size:13.5px;z-index:30;max-width:90vw}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:99px;font-size:13.5px;z-index:30;max-width:90vw;display:flex;align-items:center;gap:12px;white-space:nowrap}
+#toast span{overflow:hidden;text-overflow:ellipsis}
+#toast button{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:0 2px;min-height:28px;flex:none}
 
 /* hero + profile button */
 .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
@@ -235,92 +238,19 @@ body.lock{overflow:hidden}
 <div id="sheet" hidden></div>
 <div id="toast" role="status" hidden></div>
 
+<!--ENGINE-->
 <script>
 (function(){
 "use strict";
+/* 计算引擎在 src/engine.js，构建时内联到上面的占位符处 */
+const E=window.OnACutEngine;
+const {r0,r1,half,mid,z,ymd,parseD,addDays,diffDays,kcalOf,clone,FOODS,FBY,CATS,MEALS,MODES,compute,pfError,planFor,totals,mealNote,mins,buildTpl,dayOk,advise}=E;
 /* ---------- helpers ---------- */
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const z=n=>String(n).padStart(2,"0");
-const ymd=d=>d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate());
-const parseD=s=>{const a=s.split("-").map(Number);return new Date(a[0],a[1]-1,a[2])};
-const addDays=(s,n)=>{const d=parseD(s);d.setDate(d.getDate()+n);return ymd(d)};
-const diffDays=(a,b)=>Math.round((parseD(a)-parseD(b))/864e5);
 const today=()=>ymd(new Date());
-const r0=n=>Math.round(n), r1=n=>Math.round(n*10)/10, half=n=>Math.round(n*2)/2;
 const WD=["日","一","二","三","四","五","六"];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const kcalOf=o=>o.k!=null?o.k:4*o.p+4*o.c+9*o.f;
-const clone=o=>JSON.parse(JSON.stringify(o));
-const mid=a=>(a[0]+a[1])/2;
 
-/* ---------- food library (估算值，按实物单位) ---------- */
-const FOODS=[
- {id:"lean",cat:"pro",n:"瘦肉 1 掌",p:30,c:0,f:3},
- {id:"beef",cat:"pro",n:"瘦牛肉 1 掌",p:30,c:0,f:8},
- {id:"salmon",cat:"pro",n:"三文鱼 1 掌",p:25,c:0,f:15},
- {id:"whey",cat:"pro",n:"蛋白粉 1 大勺",p:23,c:2,f:2},
- {id:"egg",cat:"pro",n:"鸡蛋 1 个",p:6.5,c:0.5,f:5},
- {id:"milk",cat:"pro",n:"全脂牛奶 250ml",p:8,c:12,f:9},
- {id:"lmilk",cat:"pro",n:"低脂牛奶 250ml",p:8.5,c:12.5,f:4},
- {id:"soy",cat:"pro",n:"无糖豆浆粉 1 袋",p:6,c:3,f:3},
- {id:"yog",cat:"pro",n:"无糖希腊酸奶 150g",p:13,c:6,f:3},
- {id:"tofu",cat:"pro",n:"豆腐 半盒",p:12,c:3,f:7},
- {id:"rice",cat:"carb",n:"米饭/杂粮饭 1 拳",p:3,c:33,f:0.5},
- {id:"yam",cat:"carb",n:"紫薯/红薯 1 拳",p:2,c:30,f:0},
- {id:"bag3",cat:"carb",n:"法棍 1/3 根",p:7,c:45,f:1},
- {id:"bag2",cat:"carb",n:"法棍 半根",p:11,c:70,f:1.5},
- {id:"toast",cat:"carb",n:"吐司 1 片",p:3,c:14,f:1},
- {id:"oat",cat:"carb",n:"燕麦 20g",p:2.5,c:13,f:1.5},
- {id:"noodle",cat:"carb",n:"面条 1 拳",p:4,c:30,f:0.5},
- {id:"banana",cat:"veg",n:"香蕉 半根",p:0.5,c:12,f:0},
- {id:"fruit",cat:"veg",n:"水果 1 拳",p:0.5,c:15,f:0},
- {id:"veg",cat:"veg",n:"蔬菜 两捧",p:3,c:8,f:0},
- {id:"oil",cat:"fat",n:"烹调油 1 茶匙",p:0,c:0,f:5},
- {id:"nuts",cat:"fat",n:"坚果 1 小把",p:3,c:3,f:8},
- {id:"avo",cat:"fat",n:"牛油果 半个",p:1.5,c:2,f:11},
- {id:"flan",cat:"sweet",n:"Flan 1 块",p:5,c:38,f:12},
- {id:"crois",cat:"sweet",n:"黄油可颂 1 个",p:5,c:26,f:14},
- {id:"pac",cat:"sweet",n:"巧克力可颂 1 个",p:6,c:32,f:17},
- {id:"cookie",cat:"sweet",n:"曲奇 1 大块",p:2.5,c:28,f:11},
- {id:"cake",cat:"sweet",n:"蛋糕 1 片",p:4,c:40,f:16},
- {id:"ice",cat:"sweet",n:"冰淇淋 1 球",p:2,c:16,f:7},
- {id:"tea",cat:"sweet",n:"奶茶 1 杯",p:3,c:45,f:8}
-];
-const FBY={}; FOODS.forEach(f=>{FBY[f.id]=f});
-const CATS=[["pro","蛋白质"],["carb","主食"],["veg","蔬果"],["fat","油脂"],["sweet","甜点"]];
-const MEALS=["","第 1 餐","第 2 餐","第 3 餐","加餐"];
-
-/* ---------- 计算引擎：Mifflin-St Jeor BMR → TDEE → 目标 ---------- */
-const MODES={
- cut1:{t:"温和刷脂",d:"热量 −15%，好坚持",k:-0.15,p:1.7,f:0.75},
- cut2:{t:"激进刷脂",d:"热量 −25%，更快也更饿，建议不超过 8 周",k:-0.25,p:2.0,f:0.7},
- keep:{t:"维持",d:"体重不变，改善体型",k:0,p:1.4,f:0.9},
- bulk:{t:"增肌",d:"热量 +10%，配合力量训练",k:0.10,p:1.8,f:0.9}};
-const ACT=[1.2,1.3,1.375,1.45,1.5,1.6,1.675,1.75]; // 每周训练 0–7 次对应的活动系数
-function compute(pf){
-  const w=+pf.w,h=+pf.h,a=+pf.age,n=Math.max(0,Math.min(7,+pf.n||0)),m=MODES[pf.mode]||MODES.cut1;
-  const bmr=10*w+6.25*h-5*a+(pf.sex==="m"?5:-161), tdee=bmr*ACT[n], floor=pf.sex==="m"?1500:1200;
-  let avg=tdee*(1+m.k), clamped=false; if(avg<floor){avg=floor;clamped=true}
-  const pw=Math.min(w,27*Math.pow(h/100,2));               // 体重很大时按 BMI 27 的体重算蛋白和脂肪
-  const P=r0(m.p*pw), F=r0(Math.max(m.f,0.6)*pw);
-  const swing=(n>0&&n<7)?140:0;                             // 训练日比休息日多约 1 拳主食
-  const kT=avg+swing*(7-n)/7, kR=avg-swing*n/7;
-  const mk=k=>{const C=Math.max(50,r0((k-4*P-9*F)/4)),K=r0(k/10)*10;return {p:[P-5,P+5],pf:r0(P*0.8),c:[C-8,C+8],f:[F-3,F+3],k:[K-50,K+50]}};
-  const perWeek=(tdee-avg)*7/7700, goal=+pf.goal||0, diff=goal?w-goal:0;
-  const weeks=(goal&&Math.abs(perWeek)>0.03&&diff*perWeek>0)?Math.ceil(Math.abs(diff/perWeek)):null;
-  const minHealthy=r1(18.5*Math.pow(h/100,2));
-  return {bmr,tdee,avg,clamped,train:mk(kT),rest:mk(kR),perWeek,weeks,lowGoal:goal&&goal<minHealthy?minHealthy:null};
-}
-function pfError(pf){
-  if(pf.sex!=="f"&&pf.sex!=="m") return "请选择性别";
-  const a=+pf.age,h=+pf.h,w=+pf.w,g=+pf.goal;
-  if(!(a>=18&&a<=90)) return a>0&&a<18?"本工具面向成年人；未成年人请在医生或营养师指导下调整饮食":"请填写年龄（18–90）";
-  if(!(h>=120&&h<=220)) return "请填写身高（120–220 cm）";
-  if(!(w>=30&&w<=250)) return "请填写当前体重（30–250 kg）";
-  if(pf.goal!==""&&pf.goal!=null&&!(g>=30&&g<=250)) return "目标体重请填 30–250 kg，或留空";
-  return "";
-}
-const planFor=n=>{const on=[[],[1],[1,4],[1,3,5],[1,3,5,6],[1,2,3,4,5],[1,2,3,4,5,6],[0,1,2,3,4,5,6]][Math.max(0,Math.min(7,n))];return [0,1,2,3,4,5,6].map(i=>on.includes(i)?"A":"C")};
 
 /* ---------- state + storage ---------- */
 const LS="onacut.v1";
@@ -337,14 +267,14 @@ function adopt(o){S.settings=Object.assign(defaults(),o.settings);S.days=o.days|
 try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);if(o&&o.settings)adopt(o)}}catch(e){}
 migrate();
 const saveLocal=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
-const lsGet=k=>{try{return localStorage.getItem(LS+"."+k)}catch(e){return null}}, lsSet=(k,v)=>{try{localStorage.setItem(LS+"."+k,v)}catch(e){}};
+const lsGet=k=>{try{return localStorage.getItem(LS+"."+k)}catch(e){return null}}, lsSet=(k,v)=>{try{localStorage.setItem(LS+"."+k,v);return true}catch(e){return false}}, lsDel=k=>{try{localStorage.removeItem(LS+"."+k)}catch(e){}};
 const onboarded=()=>!!(S.settings.profile&&S.settings.profile.done);
 
 let col=null, cloud="local";
 const dirty=new Set(); let flushing=false, flushT=0;
-function touch(key){
+function touch(key,quiet){ // quiet：批量写入时由调用方最后统一 saveLocal
   const o=key==="settings"?S.settings:S.days[key]; if(o) o.updatedAt=Date.now();
-  saveLocal(); if(col){dirty.add(key);clearTimeout(flushT);flushT=setTimeout(flush,700)}
+  if(!quiet) saveLocal(); if(col){dirty.add(key);clearTimeout(flushT);flushT=setTimeout(flush,700)}
 }
 async function flush(){
   if(flushing||!col) return; flushing=true;
@@ -384,8 +314,8 @@ async function initCloud(){
 }
 
 /* ---------- domain ---------- */
-let cur=today(), tab=lsGet("tab")||"today", cat="pro", meal=1, hz={id:null,q:1}, myEdit=false;
-const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",k:"",note:"",open:false,busy:false});
+let cur=today(), lastToday=today(), tab=lsGet("tab")||"today", cat="pro", meal=1, hz={id:null,q:1}, myEdit=false;
+const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",k:"",note:"",s:false,open:false,busy:false});
 let cu=cuBlank();
 const multi=()=>S.settings.states.includes("B");
 const normState=k=>S.settings.states.includes(k)?k:(k==="C"?"C":"A");
@@ -394,11 +324,9 @@ function stInfo(k){const s=S.settings, win=s.fast?s.win[k][0]+"–"+s.win[k][1]:
   return k==="C"?{t:"休息日",s:win||"主食少一些"}:{t:"训练日",s:win||"碳水多一些"}}
 const dayOf=d=>{const x=S.days[d]||{state:S.settings.plan[parseD(d).getDay()],entries:[],water:0};return x};
 const stOf=day=>normState(day.state);
-function mut(d,fn){ if(!S.days[d]) S.days[d]={state:normState(S.settings.plan[parseD(d).getDay()]),entries:[],water:0}; fn(S.days[d]); touch(d) }
+const blankDay=d=>({state:normState(S.settings.plan[parseD(d).getDay()]),entries:[],water:0});
+function mut(d,fn){ if(!S.days[d]) S.days[d]=blankDay(d); fn(S.days[d]); touch(d) }
 const targets=st=>S.settings.t[st==="C"?"rest":"train"];
-function totals(day,m){const t={p:0,c:0,f:0,k:0};(day.entries||[]).forEach(e=>{if(m&&e.m!==m)return;t.p+=e.p*e.q;t.c+=e.c*e.q;t.f+=e.f*e.q;t.k+=kcalOf(e)*e.q});return t}
-const mins=s=>{const a=s.split(":").map(Number);return a[0]*60+a[1]};
-const hm=m=>z(Math.floor(m/60))+":"+z(m%60);
 const dur=m=>{m=Math.max(0,Math.round(m));return (m>=60?Math.floor(m/60)+" 小时 ":"")+(m%60)+" 分"};
 function winStatus(st,date){
   if(!S.settings.fast) return {off:true};
@@ -411,23 +339,14 @@ function winStatus(st,date){
 }
 function mealTimes(st){const s=S.settings; let a=480,b=1140; if(s.fast){a=mins(s.win[st][0]);b=mins(s.win[st][1])-30}
   const rd=m=>Math.round(m/30)*30, m2=rd(a+(b-a)*0.45), sn=rd((m2+b)/2); return [a,m2,sn,b]}
-const qty=(q,u)=>q===0.5?"半"+u:(q%1?Math.floor(q)+" "+u+"半":q+" "+u);
 /* 参考餐单：按当天目标自动配出掌、拳、茶匙的份数 */
-function buildTpl(st){
-  const t=targets(st), P=mid(t.p), C=mid(t.c), F=mid(t.f), tm=mealTimes(st), train=st!=="C";
-  const m1=train?[["whey",1,"蛋白粉 1 勺"],["milk",1,"全脂牛奶 250ml"],["banana",1,"香蕉半根"]]:[["egg",2,"鸡蛋 2 个"],["yog",1,"无糖酸奶 150g"]];
-  const sn=[["fruit",1,"水果 1 拳"]];
-  let p=6,c=16,f=0; m1.concat(sn).forEach(it=>{const x=FBY[it[0]];p+=x.p*it[1];c+=x.c*it[1];f+=x.f*it[1]}); // 6/16 = 两餐蔬菜
-  const fists=Math.max(1,half((C-c)/33)), palms=Math.max(1,half((P-p-fists*3)/30));
-  const fatLeft=F-f-palms*3-fists*0.5, nuts=fatLeft>=18?1:0, tsp=Math.max(1,Math.round((fatLeft-nuts*8)/5-0.01));
-  if(nuts) sn.push(["nuts",1,"坚果 1 小把"]);
-  const f1=half(fists*(train?0.4:0.3)), f3=half(fists*0.2), f2=Math.max(0,fists-f1-f3), p2=Math.ceil(palms)/2, p3=palms-p2, o2=Math.ceil(tsp/2), o3=tsp-o2;
-  const it=(id,q,name,u)=>q>0?[[id,q,name+(q===0.5?"":" ")+qty(q,u)]]:[];
-  return [[hm(tm[0]),1,train?"练后第一餐":"第一餐",m1.concat(it("rice",f1,"米饭","拳"))],
-    [hm(tm[1]),2,"正餐",it("lean",p2,"瘦肉","掌").concat(it("rice",f2,"米饭","拳"),[["veg",1,"蔬菜两捧"]],it("oil",o2,"油","茶匙"))],
-    [hm(tm[2]),4,"加餐",sn],
-    [hm(tm[3]),3,"收尾",it("lean",p3,"瘦肉或鱼","掌").concat(it("rice",f3,"米饭","拳"),[["veg",1,"蔬菜两捧"]],it("oil",o3,"油","茶匙"))]];
-}
+const tplOf=st=>buildTpl(targets(st),mealTimes(st),st!=="C");
+/* 今天还剩几顿正餐没吃（其他日期不分餐，传 99） */
+function mealsLeft(day,date){ if(date!==today()) return 99;
+  const tm=mealTimes(stOf(day)),n=new Date(),now=n.getHours()*60+n.getMinutes(), from=now>=tm[3]-45?3:now>=tm[1]-45?2:1;
+  let c=0; for(let m=from;m<=3;m++) if(!day.entries.some(e=>e.m===m)) c++; return Math.max(1,c)}
+const kOnlyE=e=>e.k!=null&&4*e.p+4*e.c+9*e.f<0.6*e.k;   // 只填了热量、没填克数
+const kOnly=day=>day.entries.some(kOnlyE);
 function autoMeal(){const tm=mealTimes(stOf(dayOf(today()))),n=new Date(),now=n.getHours()*60+n.getMinutes();
   return now>=tm[3]-45?3:now>=tm[2]-30?4:now>=tm[1]-45?2:1}
 
@@ -452,42 +371,39 @@ function gauge(name,v,lo,hi,col,unit,floor,isPro){
 }
 
 /* ---------- today ---------- */
-function nextHint(day,date,T,t,ws){
-  const needP=Math.max(0,mid(t.p)-T.p), roomC=t.c[1]-T.c, roomK=t.k[1]-T.k, roomF=t.f[1]-T.f;
+/* 建议卡片：主食 / 蛋白 / 油脂，今天页和对冲页共用 */
+function adviceTiles(a){
+  const pro=a.palms>0?[a.palms,"掌",a.needP<=28?"瘦肉，或 1 勺蛋白粉":"瘦肉 / 鱼 / 虾"]:a.overP>0?["+"+r0(a.overP),"g","已超，不用再吃肉"]:["✓","","已到位"];
+  const fat=a.nuts&&a.oilTsp?[a.oilTsp,"茶匙","油 + 坚果 1 小把"]:a.nuts?[1,"小把","坚果"]:a.oilTsp?[a.oilTsp,"茶匙","烹调油"]:[0,"","蒸煮，不加油"];
+  return `<div class="tiles">
+    <div class="tile ${a.fists<0.5?"zero":"go"}"><span class="k">主食</span><span class="v">${a.fists}<small>拳</small></span><span class="s">${a.fists<0.5?"用蔬菜撑饱":"米饭 / 薯 / 面"}</span></div>
+    <div class="tile"><span class="k">蛋白</span><span class="v">${pro[0]}<small>${pro[1]}</small></span><span class="s">${pro[2]}</span></div>
+    <div class="tile${fat[0]?"":" zero"}"><span class="k">油脂</span><span class="v">${fat[0]}<small>${fat[1]}</small></span><span class="s">${fat[2]}</span></div></div>`;
+}
+function adviceCard(day,date,T,t,ws){
   if(!day.entries.length) return `<div class="hint">${date>today()?"提前排好这一天：":"还没记录。"}照下面的参考餐单填入，再换成你实际吃的。</div>`;
-  if(ws.closed&&T.p<t.pf) return `<div class="hint warn"><b>蛋白质低于底线 ${t.pf}g。</b>底线优先于断食窗口：现在水冲 1 勺蛋白粉，不算破戒。</div>`;
-  const parts=[];
-  if(needP>8){const palms=half(needP/30)||0.5; parts.push(`蛋白还差约 <b>${r0(needP)}g</b> ≈ <b>${palms} 掌瘦肉</b>${needP<=28?" 或 1 勺蛋白粉":""}`)}
-  else parts.push("蛋白质已到位");
-  const fists=Math.max(0,Math.floor(Math.min(roomC/33,(roomK-needP*5)/140)*2)/2);
-  parts.push(fists>=0.5?`主食还能吃 <b>${fists} 拳</b>`:"主食额度已用完，剩下用蔬菜撑饱");
-  if(roomF<5) parts.push("脂肪见顶，后面蒸煮不加油");
-  const warn=roomK<-60;
-  if(warn) parts.push(`热量超出约 <b>${r0(-roomK)} kcal</b>，去“对冲”页看摊平方案`);
-  return `<div class="hint${warn?" warn":""}">${parts.join("；")}。</div>`;
+  const isT=date===today(), ml=mealsLeft(day,date), a=advise({T,t,mealsLeft:ml,windowClosed:!!ws.closed,kOnly:kOnly(day)}), has=f=>a.flags.includes(f);
+  if(has("closedLowP")) return `<div class="hint warn"><b>蛋白质低于底线 ${t.pf}g。</b>底线优先于断食窗口：现在水冲 1 勺蛋白粉，不算破戒。</div>`;
+  if(has("closed")) return `<div class="hint">已关窗，今天到此为止，喝水或无糖茶。</div>`;
+  const none=!a.palms&&!a.fists&&!a.nuts&&!a.oilTsp, over=has("overBudget"), notes=[];
+  if(has("proteinOver")) notes.push(`蛋白已超 <b>${r0(a.overP)}g</b>，不影响减脂${none||over?"。":"；这一餐不用再吃肉，把额度留给主食和油。"}`);
+  if(over) notes.push(`热量已用完，${a.palms?"补完蛋白后":"接下来"}只吃蔬菜${a.spreadDays?`；超出 <b>${r0(a.overK)} kcal</b>，之后 ${a.spreadDays} 天每天少半拳主食`:""}。`);
+  if(has("fatFloorShort")) notes.push("今天脂肪会略低于下限，偶尔一天没关系。");
+  if(has("kOnly")) notes.push("部分食物只记了热量，建议仅供参考。");
+  const per=isT&&a.perMeal&&!none?` <span class="muted small" style="font-weight:500">· 还有 ${ml} 餐，${ml===2?"每餐约一半":"分 "+ml+" 餐吃"}</span>`:"";
+  const body=none?(over?"":`<div class="hint">${isT?"今天":"这一天"}已经吃到位了 ✓</div>`):`<h3>${isT?"下一餐怎么吃":"这一天还缺"}${per}</h3>${adviceTiles(a)}`;
+  return body+(notes.length?`<div class="hint${over?" warn":""}">${notes.slice(0,2).join("<br>")}</div>`:"");
 }
 function tplCard(day){
-  const st=stOf(day), tpl=buildTpl(st), T={p:0,c:0,f:0};
+  const st=stOf(day), tpl=tplOf(st), T={p:0,c:0,f:0};
   const rows=tpl.map(m=>{let mp=0; m[3].forEach(it=>{const f=FBY[it[0]];T.p+=f.p*it[1];T.c+=f.c*it[1];T.f+=f.f*it[1];mp+=f.p*it[1]});
     return `<div class="m"><span class="t">${m[0]}</span><span class="w"><b>${m[2]}</b><span>${m[3].map(it=>it[2]).join(" · ")}</span></span><span class="pp">蛋白 ${r0(mp)}</span></div>`}).join("");
   const body=`<div class="tl">${rows}</div>
-   <div class="small muted">合计 蛋白 ${r0(T.p)} · 碳水 ${r0(T.c)} · 脂肪 ${r0(T.f)} · ${r0(kcalOf(T))} kcal。同类随便换：瘦肉 ↔ 虾 ↔ 鱼 ↔ 豆腐；1 拳饭 ↔ 1 拳紫薯 ↔ 1 拳面。</div>
-   <button class="btn" data-act="tpl">${day.entries.length?"再追加这份餐单":"照这份填入，再按实际增减"}</button>`;
+   <div class="small muted">合计 蛋白 ${r0(T.p)} · 碳水 ${r0(T.c)} · 脂肪 ${r0(T.f)} · ${r0(kcalOf(T))} kcal。同类随便换：瘦肉 ↔ 虾 ↔ 鱼 ↔ 豆腐；1 拳饭 ↔ 1 拳紫薯 ↔ 1 拳面。</div>`;
   return day.entries.length
     ? `<section class="panel" style="padding-block:4px"><details><summary>参考餐单 · ${stInfo(st).t}</summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">${body}</div></details></section>`
-    : `<section class="panel"><div class="sec-title"><h2>参考餐单 · ${stInfo(st).t}</h2><span class="muted small">按你的目标自动配份量</span></div>${body}</section>`;
-}
-function mealNote(st,i,mt,es){
-  const w=[], hasVeg=es.some(e=>e.fid==="veg"), sweet=es.some(e=>e.s);
-  if(i===4){ if(mt.k>250) w.push(`加餐 ${r0(mt.k)} kcal 偏多，正餐主食相应少半拳`); else if(sweet) w.push("甜点已计入额度");
-    return w.length?["warn",w.join("；")+"。"]:["good","✓ 份量合适。"] }
-  if(mt.p<25) w.push(`蛋白只有 ${r0(mt.p)}g，再加半掌肉或 1 个蛋`);
-  else if(mt.p>50) w.push(`蛋白 ${r0(mt.p)}g 偏多，可挪一部分到下一餐`);
-  if(i===1&&st!=="C"&&mt.c<45) w.push("练后这餐碳水偏少，可再加 1 拳主食");
-  if(mt.f>25) w.push(`油脂 ${r0(mt.f)}g 偏高，下一餐蒸煮少油`);
-  if(!hasVeg&&i!==1) w.push("缺蔬菜，补两捧");
-  if(sweet) w.push("甜点已计入额度");
-  return w.length?["warn",w.slice(0,2).join("；")+"。"]:["good","✓ 蛋白到位，搭配均衡。"];
+    : `<section class="panel"><div class="sec-title"><h2>参考餐单 · ${stInfo(st).t}</h2><span class="muted small">按你的目标自动配份量</span></div>${body}
+       <button class="btn" data-act="tpl">照这份填入，再按实际增减</button></section>`;
 }
 function viewToday(){
   const day=dayOf(cur), st=stOf(day), t=targets(st), T=totals(day), ws=winStatus(st,cur);
@@ -517,7 +433,7 @@ function viewToday(){
    ${gauge("蛋白质",T.p,t.p[0],t.p[1],"pro","g",t.pf,ws.closed?2:1)}
    ${gauge("碳水",T.c,t.c[0],t.c[1],"carb","g")}
    ${gauge("脂肪",T.f,t.f[0],t.f[1],"fat","g")}
-   ${nextHint(day,cur,T,t,ws)}
+   ${adviceCard(day,cur,T,t,ws)}
   </section>
   ${tplCard(day)}
   <section class="panel">
@@ -529,12 +445,13 @@ function viewToday(){
    ${cu.open?`<div class="est">
      <label class="field">名称<input id="cu-n" value="${esc(cu.n)}"></label>
      <div class="grid4"><label class="field">蛋白 g<input id="cu-p" type="number" inputmode="decimal" min="0" value="${esc(cu.p)}"></label><label class="field">碳水 g<input id="cu-c" type="number" inputmode="decimal" min="0" value="${esc(cu.c)}"></label><label class="field">脂肪 g<input id="cu-f" type="number" inputmode="decimal" min="0" value="${esc(cu.f)}"></label><label class="field">热量 kcal<input id="cu-k" type="number" inputmode="numeric" min="0" value="${esc(cu.k)}" placeholder="${cuAuto()}"></label></div>
+     <label class="check"><input type="checkbox" id="cu-s" ${cu.s?"checked":""}> 算甜点（对冲页可选）</label>
      <div class="small muted">${cu.note?esc(cu.note)+" ":""}零食可以只填包装上的热量；热量留空则按三项克数自动算。</div>
      <button class="btn primary" data-act="custom">记录，并存入“常吃”</button>
     </div>`:`<button class="link" data-act="cuopen">不估算，手动填克数或热量</button>`}
   </section>
   <section class="panel">
-   <div class="sec-title"><h2>${dayLabel()}的记录</h2><span class="num muted">${r0(T.k)} kcal</span></div>
+   <div class="sec-title"><h2>${dayLabel()}的记录</h2><span class="row" style="gap:12px;flex-wrap:nowrap"><span class="num muted">${r0(T.k)} kcal</span>${day.entries.length?'<button class="link" data-act="clear" aria-label="清空这一天的饮食记录">清空</button>':""}</span></div>
    ${log||`<div class="empty">吃了什么，在上面点一下就记上。</div>${canCopy?'<button class="btn" data-act="copyy">和前一天吃的一样，整天复制过来</button>':""}`}
   </section>
   <section class="panel">
@@ -544,30 +461,19 @@ function viewToday(){
 }
 
 /* ---------- hedge ---------- */
-function hedgePlan(day,extra){
-  const t=targets(stOf(day)), T=totals(day); T.p+=extra.p;T.c+=extra.c;T.f+=extra.f;T.k+=kcalOf(extra);
-  const needP=Math.max(0,t.p[0]-T.p), por=needP<=8?0:needP<=38?1:2, dinnerK=por*145+90;
-  const remC=t.c[1]-T.c, remF=t.f[1]-T.f, remK=t.k[1]-T.k;
-  const fl=Math.max(0,Math.floor(Math.min(remC/33,(remK-dinnerK)/140)*2)/2);
-  const over=Math.max(0,-(remK-dinnerK-fl*140));
-  return {remC,remF,remK,fl,por,over,days:Math.min(5,Math.max(2,Math.ceil(over/80)))};
-}
 function viewHedge(){
-  const day=dayOf(cur), sel=FBY[hz.id];
-  const extra=sel?{p:sel.p*hz.q,c:sel.c*hz.q,f:sel.f*hz.q}:{p:0,c:0,f:0};
+  const day=dayOf(cur), sel=hz.id?findFood(hz.id):null, t=targets(stOf(day)), T=totals(day);
+  if(sel){T.p+=sel.p*hz.q;T.c+=sel.c*hz.q;T.f+=sel.f*hz.q;T.k+=kcalOf(sel)*hz.q}
   const show=sel||day.entries.some(e=>e.s);
-  const chips=FOODS.filter(f=>f.cat==="sweet").map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${f.n.replace(/ 1 .+$/,"")}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
+  const opts=FOODS.filter(f=>f.cat==="sweet").concat(S.settings.my.filter(f=>f.s));
+  const chips=opts.map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${esc(f.cat==="sweet"?f.n.replace(/ 1 .+$/,""):f.n)}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
   let res='<div class="empty">点一款甜点，马上看到今晚怎么吃。</div>';
-  if(show){const h=hedgePlan(day,extra);
+  if(show){const a=advise({T,t,mealsLeft:1,windowClosed:false,kOnly:kOnly(day)||(!!sel&&kOnlyE(sel))});
     const bud=(v,u,l)=>`<div><b class="${v<0?"neg":""}">${v<0?"超 ":""}${r0(Math.abs(v))}</b><span>${l}${v<0?"":"还剩"} ${u}</span></div>`;
-    const pro=h.por===0?["✓","","已达标"]:h.por===1?["1","掌","瘦肉，或水冲 1 勺蛋白粉"]:["1+1","","先冲 1 勺蛋白粉，晚餐 1 掌瘦肉"];
-    res=`<div class="tiles">
-      <div class="tile ${h.fl<0.5?"zero":"go"}"><span class="k">主食</span><span class="v">${h.fl}<small>拳</small></span><span class="s">${h.fl<0.5?"今晚归零":"不用归零"}</span></div>
-      <div class="tile"><span class="k">蛋白</span><span class="v">${pro[0]}<small>${pro[1]}</small></span><span class="s">${pro[2]}</span></div>
-      <div class="tile"><span class="k">蔬菜</span><span class="v">2<small>捧</small></span><span class="s">绿叶菜撑饱</span></div></div>
-     <div class="verdict">${h.over>60?`<span class="pill warn">仍超 ${r0(h.over)} kcal → 接下来 ${h.days} 天每天少半拳主食</span>`:`<span class="pill good">吃完全天仍在额度内</span>`}
-      ${h.remF<8?'<span class="pill warn">今晚蒸煮，不加油</span>':""}<span class="pill">不加练，明早照常</span></div>
-     <div class="stats">${bud(h.remC,"g","碳水")}${bud(h.remF,"g","脂肪")}${bud(h.remK,"kcal","热量")}</div>`}
+    res=`${adviceTiles(a)}
+     <div class="verdict">${a.spreadDays?`<span class="pill warn">仍超 ${r0(a.overK)} kcal → 接下来 ${a.spreadDays} 天每天少半拳主食</span>`:`<span class="pill good">吃完全天仍在额度内</span>`}
+      ${a.flags.includes("kOnly")?'<span class="pill warn">部分食物只记了热量，仅供参考</span>':""}<span class="pill">蔬菜两捧</span><span class="pill">不加练，明早照常</span></div>
+     <div class="stats">${bud(t.c[1]-T.c,"g","碳水")}${bud(t.f[1]-T.f,"g","脂肪")}${bud(a.budget,"kcal","热量")}</div>`}
   return `
   <header class="top"><div class="date"><div class="d1">甜点对冲</div><div class="d2">${dayLabel()} · ${stInfo(stOf(day)).t}</div></div>${profBtn()}</header>
   <section class="panel">
@@ -631,7 +537,7 @@ function viewLog(){
   const wkT=logged.map(x=>totals(x)), avg=k=>wkT.length?r0(wkT.reduce((a,t)=>a+t[k],0)/wkT.length):"–";
   const hit=logged.filter(x=>totals(x).p>=targets(stOf(x)).p[0]).length;
   const cal=Array.from({length:30},(_,i)=>{const d=addDays(today(),i-29),x=S.days[d];let c="";
-    if(x&&x.entries&&x.entries.length){const t=targets(stOf(x)),T=totals(x);c=(T.p>=t.p[0]&&T.k<=t.k[1]+50)?"ok":"half"}
+    if(x&&x.entries&&x.entries.length)c=dayOk(totals(x),targets(stOf(x)))?"ok":"half"
     return `<i class="${c}${d===today()?" now":""}" title="${d}">${parseD(d).getDate()}</i>`}).join("");
   return `
   <header class="top"><div class="date"><div class="d1">训练与体重</div><div class="d2">${dayLabel()} 周${WD[parseD(cur).getDay()]} · ${stInfo(stOf(day)).t}</div></div>${dayNav()}${profBtn()}</header>
@@ -663,7 +569,7 @@ function viewLog(){
 /* ---------- guide ---------- */
 function aiBrief(){
   const s=S.settings,pf=s.profile||{},tr=s.t.train,re=s.t.rest, td=today(); let rows="";
-  for(let i=6;i>=0;i--){const d=addDays(td,-i),x=S.days[d]; if(!x) continue; const T=totals(x);
+  for(let i=6;i>=0;i--){const d=addDays(td,-i),x=S.days[d]; if(!x||!((x.entries&&x.entries.length)||x.weight||x.lift)) continue; const T=totals(x);
     rows+=`- ${d} ${stInfo(stOf(x)).t}：蛋白 ${r0(T.p)}g / 碳水 ${r0(T.c)}g / 脂肪 ${r0(T.f)}g / ${r0(T.k)} kcal${x.lift?"，已训练":""}${x.weight?"，晨重 "+x.weight+"kg":""}\n`}
   return `# 饮食与训练交接档案
 身体：${pf.sex==="m"?"男":pf.sex==="f"?"女":""}${pf.age?" "+pf.age+" 岁":""} ${pf.h||"?"} cm / ${pf.w||"?"} kg${pf.goal?"，目标 "+pf.goal+" kg":""}；模式：${(MODES[pf.mode]||MODES.cut1).t}；每周训练 ${s.plan.filter(x=>x!=="C").length} 次。
@@ -726,8 +632,9 @@ function viewGuide(){
 }
 
 /* ---------- sheet: onboarding + profile ---------- */
-let sheet=null, dr=null, step=0, armed=false, shErr="";
-function openSheet(kind){const s=S.settings; sheet=kind; step=0; armed=false; shErr="";
+let sheet=null, dr=null, step=0, armed=false, armedU=false, rsWarn="", shErr="";
+const RESTORE_ARMED="再点一次确认：覆盖当前全部数据", UNRESTORE_ARMED="再点一次确认：回到恢复前的数据";
+function openSheet(kind){const s=S.settings; sheet=kind; step=0; armed=false; armedU=false; rsWarn=""; shErr="";
   dr=clone({pf:s.profile||{sex:"",age:"",h:"",w:"",goal:"",n:3,mode:"cut1",custom:false,done:false},fast:!!s.fast,win:s.win,plan:s.plan,t:s.t,fsel:"none"});
   if(kind==="onb") dr.plan=planFor(+dr.pf.n);
   document.body.classList.add("lock"); renderSheet()}
@@ -777,7 +684,7 @@ function renderSheet(){
     const trow=(g,label)=>`<h3>${label}</h3><div class="grid4">${tin(g,"p",0,"蛋白下限")}${tin(g,"p",1,"蛋白上限")}${tin(g,"c",0,"碳水下限")}${tin(g,"c",1,"碳水上限")}${tin(g,"f",0,"脂肪下限")}${tin(g,"f",1,"脂肪上限")}${tin(g,"k",0,"热量下限")}${tin(g,"k",1,"热量上限")}</div>`;
     const sts=S.settings.states, winRow=k=>`<div class="grid2">${inp(`win.${k}.0`,stInfo(k).t+" 开始",'type="time"',dr.win[k][0])}${inp(`win.${k}.1`,"结束",'type="time"',dr.win[k][1])}</div>`;
     const planSel=[1,2,3,4,5,6,0].map(i=>`<label class="field">周${WD[i]}<select id="dr-plan-${i}" data-dr="plan.${i}">${sts.map(k=>`<option value="${k}" ${normState(dr.plan[i])===k?"selected":""}>${k==="C"?"休息":multi()?k:"训练"}</option>`).join("")}</select></label>`).join("");
-    const bk=+lsGet("bk")||0;
+    const bk=+lsGet("bk")||0, ua=undoAt(), ud=new Date(ua);
     body=`
      <section class="panel"><h2>身体数据</h2>${bodyFields()}${weightFields()}</section>
      <section class="panel"><h2>目标</h2>${modeFields()}${trainFields()}<div id="dr-prev">${prevHTML()}</div>
@@ -791,7 +698,9 @@ function renderSheet(){
       <button class="btn" data-act="export">导出备份 (JSON)</button>
       <label class="field">恢复数据：选择备份文件，或把备份文本粘贴到下面<input type="file" id="bkfile" accept=".json,application/json,text/plain"></label>
       <textarea class="inp" id="io" placeholder="备份文本" aria-label="备份文本"></textarea>
-      <button class="btn" data-act="restore" id="btn-restore">恢复数据</button>
+      <div class="err" id="rs-warn">${esc(rsWarn)}</div>
+      <button class="btn${armed?" on":""}" data-act="restore" id="btn-restore">${armed?RESTORE_ARMED:"恢复数据"}</button>
+      ${ua?`<button class="btn${armedU?" on":""}" data-act="unrestore" id="btn-unrestore">${armedU?UNRESTORE_ARMED:`撤销上次恢复（${ymd(ud)} ${z(ud.getHours())}:${z(ud.getMinutes())}）`}</button>`:""}
      </section>`;
     foot='<button class="btn primary grow" data-act="shsave">保存</button>';
   }
@@ -816,14 +725,21 @@ function render(){
   document.getElementById("app").innerHTML=tab==="today"?viewToday():tab==="hedge"?viewHedge():tab==="log"?viewLog():viewGuide();
   document.getElementById("nav").innerHTML=NAV.map(n=>`<button data-tab="${n[0]}" ${tab===n[0]?'aria-current="page"':""}><svg viewBox="0 0 24 24" aria-hidden="true">${n[2]}</svg>${n[1]}</button>`).join("");
 }
-let toastT=0;
-function toast(m){const t=document.getElementById("toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},1800)}
+let toastT=0, undoSnap=null;
+function toast(m,undo){const t=document.getElementById("toast"); if(!undo) undoSnap=null;
+  t.innerHTML=`<span>${esc(m)}</span>`+(undo?'<button data-act="undo">撤销</button>':"");
+  t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;undoSnap=null},undo?5000:1800)}
+/* 可撤销操作：先存快照再执行，只保留最近一次 */
+function withUndo(key,label,fn){const snap=clone(key==="settings"?S.settings.my:(S.days[key]??null)); fn(); undoSnap={key,snap}; toast(label,true)}
+function doUndo(){const u=undoSnap; if(!u) return; undoSnap=null;
+  if(u.key==="settings") S.settings.my=u.snap; else S.days[u.key]=u.snap||blankDay(u.key);
+  touch(u.key); render(); toast("已撤销")}
 const findFood=id=>FBY[id]||S.settings.my.find(x=>x.id===id);
-function addFood(f,q,m){mut(cur,d=>{const ex=d.entries.find(e=>e.fid===f.id&&e.m===m); if(ex) ex.q=r1(ex.q+q); else {const e={id:uid(),fid:f.id,n:f.n,q:q,p:f.p,c:f.c,f:f.f,m:m,s:f.cat==="sweet"?1:0};if(f.k!=null)e.k=f.k;d.entries.push(e)}})}
+function addFood(f,q,m){mut(cur,d=>{const ex=d.entries.find(e=>e.fid===f.id&&e.m===m); if(ex) ex.q=r1(ex.q+q); else {const e={id:uid(),fid:f.id,n:f.n,q:q,p:f.p,c:f.c,f:f.f,m:m,s:(f.cat==="sweet"||f.s)?1:0};if(f.k!=null)e.k=f.k;d.entries.push(e)}})}
 function copyText(txt,okMsg,boxId){const fb=()=>{const io=document.getElementById(boxId);if(io){io.hidden=false;io.value=txt;io.focus();io.select();toast("已放入文本框，请长按复制")}};
   try{navigator.clipboard.writeText(txt).then(()=>toast(okMsg),fb)}catch(e){fb()}}
 const cuAuto=()=>{const g=x=>Math.max(0,parseFloat(x)||0),v=4*g(cu.p)+4*g(cu.c)+9*g(cu.f);return v?"自动 "+r0(v):"自动"};
-const EST_PROMPT=`你是营养估算助手。用户用中文描述吃下的一份食物，可能用这些实物单位：1 掌 = 手掌心大小（不含手指）、厚约 1.5cm 的熟肉或海鲜，约 120–130g 熟重；1 拳 = 握紧的拳头大小的熟主食，约 100–130g；两捧 = 双手捧起的蔬菜，约 200g；1 大勺蛋白粉 ≈ 30g 粉。没说做法时按家常少油做法估算，估算的是描述里的整份。只回复一个 JSON 对象，不要其他文字：{"name":"简短名称含份量","p":蛋白质克数,"c":碳水克数,"f":脂肪克数,"note":"一句话说明假设的重量和做法"}。例如：{"name":"章鱼 1 掌","p":30,"c":4,"f":2,"note":"按熟重约 125g、白灼估算。"}。如果描述不是食物，回复 {"error":"无法识别"}。\n\n用户描述：`;
+const EST_PROMPT=`你是营养估算助手。用户用中文描述吃下的一份食物，可能用这些实物单位：1 掌 = 手掌心大小（不含手指）、厚约 1.5cm 的熟肉或海鲜，约 120–130g 熟重；1 拳 = 握紧的拳头大小的熟主食，约 100–130g；两捧 = 双手捧起的蔬菜，约 200g；1 大勺蛋白粉 ≈ 30g 粉。没说做法时按家常少油做法估算，估算的是描述里的整份。只回复一个 JSON 对象，不要其他文字：{"name":"简短名称含份量","p":蛋白质克数,"c":碳水克数,"f":脂肪克数,"note":"一句话说明假设的重量和做法","sweet":是否属于甜点、含糖饮料或零食（true 或 false）}。例如：{"name":"章鱼 1 掌","p":30,"c":4,"f":2,"note":"按熟重约 125g、白灼估算。","sweet":false}。如果描述不是食物，回复 {"error":"无法识别"}。\n\n用户描述：`;
 async function estimate(){
   const q=cu.q.trim(); if(!q){toast("先写下吃了什么");return}
   if(!sampleFn){cu.open=true;if(!cu.n)cu.n=q;render();toast("这里连不上 AI，请手动填");return}
@@ -831,7 +747,7 @@ async function estimate(){
   try{const r=await sampleFn.json(EST_PROMPT+q.slice(0,200),{modelTier:"quick"});
     if(!r||typeof r!=="object"||r.error) throw {code:"unrecognized"};
     const num=x=>Math.max(0,Math.min(500,r1(Number(x)||0)));
-    cu.n=String(r.name||q).slice(0,40);cu.p=num(r.p);cu.c=num(r.c);cu.f=num(r.f);cu.note=String(r.note||"").slice(0,120);cu.k="";cu.open=true;
+    cu.n=String(r.name||q).slice(0,40);cu.p=num(r.p);cu.c=num(r.c);cu.f=num(r.f);cu.note=String(r.note||"").slice(0,120);cu.s=r.sweet===true;cu.k="";cu.open=true;
   }catch(e){const c=e&&e.code; cu.open=true; if(!cu.n)cu.n=q;
     toast(c==="unrecognized"?"没认出这是什么食物，换个说法试试":c==="rate_limited"?"调用太频繁，稍后再试":c==="not_granted"||c==="sampling_disabled"?"未允许调用 Claude，请手动填":"估算没成功，可重试或手动填")}
   cu.busy=false; if(tab==="today")render();
@@ -842,17 +758,35 @@ function exportData(){
   if(!window.claude){ try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"}));a.download="on-a-cut-backup-"+today()+".json";document.body.appendChild(a);a.click();a.remove();toast("备份文件已下载");return}catch(e){} }
   const io=document.getElementById("io"); if(io) io.value=txt; copyText(txt,"备份已复制，粘贴到备忘录里保存","io");
 }
+/* 整体替换数据：原来有、新数据里没有的日期写成空白日，带新时间戳，云端旧数据才不会被拉回来 */
+function replaceAll(o){
+  const oldKeys=Object.keys(S.days); adopt(o);
+  oldKeys.forEach(k=>{ if(!S.days[k]) S.days[k]=blankDay(k) });
+  touch("settings",true); Object.keys(S.days).forEach(k=>touch(k,true)); saveLocal();
+}
+const undoAt=()=>{const m=/^\{"at":(\d+)/.exec(lsGet("undo")||"");return m?+m[1]:0};
+function undoFits(json){const old=lsGet("undo"), ok=lsSet("undo",json); if(old!=null) lsSet("undo",old); else lsDel("undo"); return ok}
 function restoreData(){
   const btn=document.getElementById("btn-restore"), raw=(document.getElementById("io").value||"").trim(); let o;
   try{o=JSON.parse(raw); if(!o||typeof o.settings!=="object"||typeof o.days!=="object") throw 0}catch(e){shErr="备份内容不完整：请选择导出的 .json 文件，或粘贴完整的备份文本";document.getElementById("sh-err").textContent=shErr;return}
-  if(!armed){armed=true;btn.textContent="再点一次确认：覆盖当前全部数据";btn.classList.add("on");return}
-  adopt(o); touch("settings"); Object.keys(S.days).forEach(k=>touch(k)); closeSheet(); render(); toast("数据已恢复");
+  if(!armed){armed=true;btn.textContent=RESTORE_ARMED;btn.classList.add("on");
+    rsWarn=undoFits(JSON.stringify({at:Date.now(),data:S}))?"":"空间不足，这次恢复无法撤销"; document.getElementById("rs-warn").textContent=rsWarn; return}
+  const saved=lsSet("undo",JSON.stringify({at:Date.now(),data:S})); if(!saved) lsDel("undo");
+  replaceAll(o); closeSheet(); render(); toast(saved?"数据已恢复":"数据已恢复（这次无法撤销）");
+  if(!onboarded()) openSheet("onb");
+}
+function unrestore(){
+  const btn=document.getElementById("btn-unrestore");
+  if(!armedU){armedU=true;btn.textContent=UNRESTORE_ARMED;btn.classList.add("on");return}
+  let o; try{o=JSON.parse(lsGet("undo")).data; if(!o||typeof o.settings!=="object"||typeof o.days!=="object") throw 0}catch(e){lsDel("undo");closeSheet();toast("恢复前的数据读不出来，无法撤销");return}
+  replaceAll(o); lsDel("undo"); closeSheet(); render(); toast("已撤销，回到恢复前的数据");
   if(!onboarded()) openSheet("onb");
 }
 
 document.addEventListener("click",ev=>{
   const tb=ev.target.closest("[data-tab]"); if(tb){tab=tb.dataset.tab;lsSet("tab",tab);render();window.scrollTo(0,0);return}
   const b=ev.target.closest("[data-act]"); if(!b) return; const a=b.dataset.act, v=b.dataset.v;
+  if(a==="undo"){doUndo();return}
   /* sheet actions: re-render the sheet only */
   if(a==="profile"){openSheet("prof");return}
   if(a==="shclose"){closeSheet();return}
@@ -873,28 +807,33 @@ document.addEventListener("click",ev=>{
     applyDraft(false); closeSheet(); render(); toast("已保存"); return}
   if(a==="export"){exportData();renderSheetKeepIO();return}
   if(a==="restore"){restoreData();return}
+  if(a==="unrestore"){unrestore();return}
 
-  if(a==="prev"){cur=addDays(cur,-1)} else if(a==="next"){if(cur<addDays(today(),7))cur=addDays(cur,1)}
+  if(a==="prev"||a==="next"){ if(a==="prev") cur=addDays(cur,-1); else if(cur<addDays(today(),7)) cur=addDays(cur,1);
+    meal=cur===today()?autoMeal():1 }
   else if(a==="state"){mut(cur,d=>{d.state=v})}
   else if(a==="meal"){meal=+v} else if(a==="cat"){cat=v;myEdit=false}
   else if(a==="add"){const f=findFood(v);if(!f)return;addFood(f,1,meal);toast("已记录 "+f.n)}
-  else if(a==="inc"||a==="dec"){mut(cur,d=>{const e=d.entries.find(x=>x.id===v);if(!e)return;e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)})}
-  else if(a==="tpl"){buildTpl(stOf(dayOf(cur))).forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1])));toast("已填入，按实际增减")}
-  else if(a==="copyy"){const yd=S.days[addDays(cur,-1)]; if(yd) mut(cur,d=>{d.entries=yd.entries.map(e=>Object.assign({},e,{id:uid()}))}); toast("已复制前一天的记录")}
+  else if(a==="inc"||a==="dec"){const e0=dayOf(cur).entries.find(x=>x.id===v); if(!e0) return;
+    const step=()=>mut(cur,d=>{const e=d.entries.find(x=>x.id===v);e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)});
+    if(a==="dec"&&r1(e0.q-0.5)<=0) withUndo(cur,"已删除 "+e0.n,step); else step()}
+  else if(a==="clear"){ if(dayOf(cur).entries.length) withUndo(cur,"已清空"+dayLabel()+"的记录",()=>mut(cur,d=>{d.entries=[]})) }
+  else if(a==="tpl"){withUndo(cur,"已填入，按实际增减",()=>tplOf(stOf(dayOf(cur))).forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1]))))}
+  else if(a==="copyy"){const yd=S.days[addDays(cur,-1)]; if(yd) withUndo(cur,"已复制前一天的记录",()=>mut(cur,d=>{d.entries=yd.entries.map(e=>Object.assign({},e,{id:uid()}))}))}
   else if(a==="est"){estimate();return}
   else if(a==="cuopen"){cu.open=true;if(!cu.n)cu.n=cu.q.trim()}
   else if(a==="custom"){const n=String(cu.n).trim(),g=x=>Math.max(0,parseFloat(x)||0);
     const p=g(cu.p),c=g(cu.c),f=g(cu.f),k=String(cu.k).trim()===""?null:r0(g(cu.k)); if(!n||!(p+c+f+(k||0))){toast("填上名称，以及热量或至少一项克数");return}
     const nm=n.slice(0,40), my=S.settings.my; let item=my.find(x=>x.n===nm);
     if(!item){item={id:"my-"+uid(),cat:"my",n:nm};my.unshift(item);if(my.length>60)my.length=60}
-    item.p=p;item.c=c;item.f=f; if(k!=null)item.k=k; else delete item.k; touch("settings");
+    item.p=p;item.c=c;item.f=f;item.s=cu.s?1:0; if(k!=null)item.k=k; else delete item.k; touch("settings");
     addFood(item,1,meal);cu=cuBlank();toast("已记录，并存入“常吃”")}
   else if(a==="myedit"){myEdit=!myEdit}
-  else if(a==="mydel"){S.settings.my=S.settings.my.filter(x=>x.id!==v);touch("settings")}
+  else if(a==="mydel"){withUndo("settings","已从“常吃”删除",()=>{S.settings.my=S.settings.my.filter(x=>x.id!==v);touch("settings")})}
   else if(a==="water"){mut(cur,d=>{d.water=Math.max(0,Math.min(16,(d.water||0)+ +v))})}
   else if(a==="hz"){hz={id:hz.id===v?null:v,q:1}} else if(a==="hzq"){hz.q=Math.max(0.5,r1(hz.q+ +v))}
   else if(a==="hzclear"){hz={id:null,q:1}}
-  else if(a==="hzadd"){const f=FBY[hz.id];if(f){addFood(f,hz.q,4);hz={id:null,q:1};toast("已记入")}}
+  else if(a==="hzadd"){const f=hz.id?findFood(hz.id):null, q=hz.q;if(f){hz={id:null,q:1};withUndo(cur,"已记入"+dayLabel(),()=>addFood(f,q,4))}}
   else if(a==="lift"||a==="cardio"){mut(cur,d=>{d[a]=!d[a]})}
   else if(a==="syncw"){const pf=S.settings.profile, a1=avgW(weightSeries(),0,7); if(pf&&a1!=null){pf.w=r1(a1); if(!pf.custom&&!pfError(pf)){const r=compute(pf);S.settings.t={train:r.train,rest:r.rest}} touch("settings"); toast(pf.custom?"档案体重已更新":"已按新体重重新计算目标")}}
   else if(a==="copyai"){copyText(aiBrief(),"已复制，粘贴给 AI 即可","io2");return}
@@ -908,13 +847,17 @@ document.addEventListener("input",ev=>{const el=ev.target;
 document.addEventListener("keydown",ev=>{ if(ev.key==="Enter"&&ev.target.id==="cu-q"){ev.preventDefault();estimate()} });
 document.addEventListener("change",ev=>{
   const el=ev.target;
+  if(el.id==="cu-s"){cu.s=el.checked;return}
   if(el.dataset.drc&&dr){dr.pf.custom=el.checked; if(el.checked&&!pfError(dr.pf)){const r=compute(dr.pf);dr.t={train:r.train,rest:r.rest}} renderSheet();return}
   if(el.id==="bkfile"&&el.files&&el.files[0]){const fr=new FileReader();fr.onload=()=>{const io=document.getElementById("io");if(io){io.value=String(fr.result||"");armed=false;toast("已读取文件，点“恢复数据”")}};fr.readAsText(el.files[0]);return}
   if(el.dataset.chg){const k=el.dataset.chg;
     if(k==="note"){mut(cur,d=>{d.note=el.value.slice(0,2000)});return}
     const n=parseFloat(el.value); mut(cur,d=>{if(n>0)d[k]=r1(n);else delete d[k]}); render()}
 });
-setInterval(()=>{ if(tab!=="today"||cur!==today()) return; const p=document.getElementById("winpill"); if(!p) return;
+function rollDay(){ const td=today(); if(td===lastToday) return;
+  if(cur===lastToday) cur=td; lastToday=td; meal=cur===td?autoMeal():1; render() }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) rollDay() });
+setInterval(()=>{ rollDay(); if(tab!=="today"||cur!==today()) return; const p=document.getElementById("winpill"); if(!p) return;
   const st=stOf(dayOf(cur)), ws=winStatus(st,cur); if(ws.off) return; p.textContent=ws.txt; p.className="pill "+ws.cls },30000);
 
 meal=autoMeal();
