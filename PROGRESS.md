@@ -1,5 +1,57 @@
 # 阶段性开发交接摘要
 
+## 2026-11-13 · 批次 2A.1：食物数据清理（v8.2）
+
+只改了食物数据和 `searchFoods`，页面（`src/on-a-cut.html`）没有改动。规则见 `docs/SPEC.md` 第 5 节“食物库”里的“默认格子”“甜点分类的分组”“隐藏条目”三条。
+
+### 已完成改动
+
+- **`src/foods.js`**：
+  - **重选默认格子**：先去掉全部 `top`，再按名单加回。各分类最终的数量和名单（也是页面上的显示顺序）：
+    - 蛋白质 12：`chicken chleg egg lean beef fish shrimp tofu soymilk milk yog whey`
+    - 主食 12：`rice noodle mifen mantou baozi jiaozi porridge corn yam potato oat toast`
+    - 蔬果 11：`veg stirveg broccoli tomato cucumber apple banana orange watermelon grape fruit`
+    - 油脂 10：`oil peanut zmj wuhua pb cheese avo nuts guazi walnut`（集合和任务单一致，顺序不同，原因见遗留问题）
+    - 甜点 12：`mtfull mthalf cola juice beer chips choc cake ice popsicle eggtart cookie`
+  - 移出默认格子、仍能搜到的：`bag3 wwbread flan crois pac tea lmilk soy salmon blueberry xfq butter`；`bag2` 移出且搜不到。
+  - **奶茶改组**：`tea` 的 `g` 从 `"sweet"` 改成 `"snack"`，条目移到“零食饮品”分段、紧跟 `mtzero`。现在 `cat="sweet"` 共 32 种：`g="sweet"`（甜点）18 种，`g="snack"`（饮品零食）14 种。按场景分组的总数变为：家常 69、西式轻食 24、外卖外食 39、零食饮品 34、甜点 18。
+  - **法棍去重**：`bag3` 末尾追加“半根”（x 1.5）和“1 根”（x 3）；`bag2` 加 `hide:1`。`FBY` 从 274 个 id 变为 276 个。
+  - 每个分段里，带 `top` 的条目移到了分段最前面（按显示顺序排），其余条目的相对顺序不变，没有条目跨分段（`tea` 除外）。文件顶部注释补了 `hide`、甜点分组、排序三条约定。
+- **`src/engine.js`**：生成 `FOODS` 时复制 `hide`；`searchFoods` 遍历内置食物时跳过 `hide` 的条目；两处注释更新。`recentFoods`、`portionsOf`、`baseId`、`guessCat` 没有改。
+- **测试**：只追加，已有断言没改。`tests/foods.test.js` 加 4 组（top 名单、甜点分类的 g、hide 标记、法棍份量），`tests/engine.test.js` 加 1 组（隐藏条目不出现）。共 **44 组**（39 + 5），全部通过。
+  - **Node 22 实跑**：`v22.23.5`（本机没装，用 `npx -y node@22 --test tests/`），44 组全部通过，`sort | uniq -d` 检查没有重复执行的组。
+  - 本机 Node `v26.13.1` 下同样是 44 组、各一次。
+- **文档**：`docs/SPEC.md` 第 5 节（`hide`、甜点分类的 `g`、top 挑选原则、`FOODS` 形状、`searchFoods` 说明）和变更记录 v8.2。`CLAUDE.md` 里没有食物库字段的描述，没改。
+- **生成物**：重新构建 `dist/page.html`、`index.html`，都含 `hide:1` 和 `bag3`，没有 `<!--ENGINE-->`。
+- **验证与发布**：
+  - Playwright 在 400px 宽走查 43 项全部通过，没有控制台报错和横向溢出。覆盖：五个分类的格子数和名单、搜“法棍”只有 1 条且份量为 1/3 根 / 半根 / 1 根、点“半根”记入 10.5 / 67.5、搜“奶茶”四条都在、注入昨天的 `bag2` 记录后“最近”里能看到并照常记入（`fid==="bag2"`）、对冲页 32 种且选中奶茶后三张卡片正常。
+  - 红线自查：把新旧 `foods.js` 逐条逐字段比较，除 `top` 外只有三处变动：`bag3.u`、`bag2.hide`、`tea.g`。`src/on-a-cut.html` 不在 diff 里；localStorage 键名没变。
+  - 已发布到原 Artifact 链接（版本 10），能力声明沿用 `db`、`user`、`sample`。发布前核对过线上版本和仓库里 v8.1 的 `dist/page.html` 逐行一致。
+
+### 技术约束 / 结构变更（批次 2B.1 直接使用）
+
+- **饮品和甜点的区分方式**：字段是 `g`，`"sweet"` 为甜点，`"snack"` 为饮品零食，只在 `cat==="sweet"` 时用来分组。内置条目由测试保证只有这两种值，两组都不少于 10 种。自定义食物（`settings.my`）没有 `g`，对冲页需要单独成组（例如“我的”）。两组记录时都是 `s=1`。
+- **`hide` 字段**：`FOODS` 里可能有 `hide===1` 的条目，目前只有 `bag2`。
+  - `searchFoods` 已经跳过它们；`FBY`、`portionsOf`、`recentFoods` 不受影响。
+  - 页面上**凡是直接遍历 `FOODS` 的地方**（分类格子、对冲页甜点列表），今后都应加 `!f.hide`。目前隐藏的条目既不是 `top` 也不是 `sweet`，所以页面暂时不受影响。
+  - 有 `hide` 的条目不能同时有 `top`（测试会查）。变体对象上不带 `hide`。
+- **`bag3` 新增的变体 id**：`bag3@half`（法棍 半根，10.5 / 67.5 / 1.5）、`bag3@one`（法棍 1 根，21 / 135 / 3），都没有 `k`。
+- **top 名单由测试写死**（`tests/foods.test.js` 里的 `TOP82`）：以后调整默认格子，要同时改这份名单。
+- **分类格子的显示顺序 = `FOODS` 的数组顺序**：先按场景分段（家常 → 西式轻食 → 外卖外食 → 零食饮品 → 甜点），分段内 `top` 条目在最前。想让某个分类按别的顺序显示，要么在页面里排序，要么调整 foods.js 的分段内顺序。
+
+### 遗留问题 / 注意事项
+
+- **和任务单不一致的地方**：
+  - **油脂分类的显示顺序和表格不同**。表格是 `oil nuts peanut guazi walnut zmj pb cheese avo wuhua`，实际是 `oil peanut zmj wuhua pb cheese avo nuts guazi walnut`。原因：这 10 个食物分在家常、西式轻食、零食饮品三个分段里，表格顺序在分段之间来回穿插，而任务单要求不把条目移出原分段。其余四个分类的顺序和表格完全一致。
+  - **分段内 `top` 条目整体移到了最前面**，所以 `src/foods.js` 的 diff 行数比较多（大部分是整行移动）。内容有没有变，以逐字段比较的结果为准。
+  - 测试里多加了几条任务单没列的断言：每个分类的 top 数量在 10–12 之间、`E.FOODS` 里隐藏的 id 恰好是 `bag2`、搜 `fg` 时 `bag3` 仍在。
+- **数值差异**：`bag3@half`（10.5 / 67.5 / 1.5）和旧的 `bag2`（11 / 70 / 1.5）相差约 3%，显示名都是“法棍 半根”。历史记录里存的是当时的数值，不受影响。
+- **`recentFoods` 仍然把 `bag2` 和 `bag3@half` 当作两种食物**：两种都记过的用户，“最近”里会出现两个“法棍 半根”。同理，把 `bag2` 加进过常吃的用户，常吃里那一格还在（`findFood` 能找到），但搜索结果里不会再显示它的收藏状态。
+- **没覆盖的边界**：页面视图层仍然没有自动化测试；Playwright 走查脚本没有放进仓库。
+- **留给 2B.1**：
+  - 对冲页按 `g` 分组（甜点 / 饮品零食 / 我的）；
+  - 给直接遍历 `FOODS` 的地方（分类格子、对冲页甜点列表）加 `!f.hide`。
+
 ## 2026-11-13 · 批次 1.1：超出热量自动摊平（v8.1）
 
 某天吃超了，之后几天的热量和碳水目标会自动降低，页面会说明降了多少、在还哪天的账。原来 `advise.spreadDays` 那句“之后 N 天每天少半拳主食”从来没兑现，这次改成真的执行。完整规则见 `docs/SPEC.md` 第 2.1 节。

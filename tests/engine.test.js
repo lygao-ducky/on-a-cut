@@ -211,3 +211,15 @@ test("mealNote：蔬菜的份量变体也算有蔬菜", ()=>{
   assert.doesNotMatch(mealNote("A",2,mt,[{fid:"veg",s:0}])[1],/缺蔬菜/);
   assert.doesNotMatch(mealNote("A",2,mt,[{fid:"veg@one",s:0}])[1],/缺蔬菜/);
 });
+
+/* ---------- 批次 2A.1：hide 的内置条目不进搜索结果 ---------- */
+test("searchFoods：隐藏条目不出现", ()=>{
+  const r=searchFoods("法棍",{limit:50});
+  assert.equal(r.filter(x=>x.food.id==="bag2").length,0);
+  const fg=r.filter(x=>x.food.base&&x.food.base.n==="法棍");
+  assert.equal(fg.length,1); assert.equal(fg[0].food.id,"bag3");
+  assert.ok(!ids(searchFoods("fg",{limit:50})).includes("bag2"));
+  assert.ok(ids(searchFoods("fg",{limit:50})).includes("bag3"));
+  assert.ok(!ids(searchFoods("法棍",{recent:{bag2:5},fav:["bag2"],limit:50})).includes("bag2"));
+  assert.ok(ids(searchFoods("奶茶")).includes("tea"));
+});

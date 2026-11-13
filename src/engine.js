@@ -16,13 +16,13 @@ const hm=m=>z(Math.floor(m/60))+":"+z(m%60);
 const qty=(q,u)=>q===0.5?"半"+u:(q%1?Math.floor(q)+" "+u+"半":q+" "+u);
 
 /* ---------- 食物库：数据在 src/foods.js，这里展开成显示用的表 ----------
-   FOODS 只含基准份量（显示名 = 名称 + 第一个份量）；FBY 另含每个非基准份量的变体，id 为 <基准 id>@<份量 k>。 */
+   FOODS 只含基准份量（显示名 = 名称 + 第一个份量），包括 hide 的条目；FBY 另含每个非基准份量的变体，id 为 <基准 id>@<份量 k>。 */
 const FD=root.OnACutFoods||(typeof require!=="undefined"?require("./foods.js"):null);
 if(!FD||!FD.FOODS) throw new Error("OnACutEngine: 找不到食物库，foods.js 要先于 engine.js 加载");
 const CATS=FD.CATS, FOODS=[], FBY={};
 FD.FOODS.forEach(b=>{
   const f={id:b.id,cat:b.cat,n:b.n+" "+b.u[0].l,p:b.p,c:b.c,f:b.f,g:b.g,tags:b.tags,base:b};
-  if(b.k!=null) f.k=b.k; if(b.top) f.top=b.top;
+  if(b.k!=null) f.k=b.k; if(b.top) f.top=b.top; if(b.hide) f.hide=1;
   FOODS.push(f); FBY[f.id]=f;
   b.u.slice(1).forEach(u=>{
     const v={id:b.id+"@"+u.k,cat:b.cat,n:b.n+" "+u.l,p:r1(b.p*u.x),c:r1(b.c*u.x),f:r1(b.f*u.x),g:b.g,tags:b.tags,baseOf:b.id};
@@ -40,7 +40,7 @@ function guessCat(f){
   if(!(tot>0)) return "carb";
   return P/tot>=0.4?"pro":F/tot>=0.5?"fat":"carb";
 }
-/* 搜索：q 去空格转小写；候选 = 内置基准食物 + opts.my（自定义，只按名称）。返回 [{food, score}] */
+/* 搜索：q 去空格转小写；候选 = 内置基准食物 + opts.my（自定义，只按名称）；内置候选跳过 hide 的条目。返回 [{food, score}] */
 const normQ=s=>String(s==null?"":s).replace(/\s+/g,"").toLowerCase();
 function searchFoods(q,opts){
   q=normQ(q); if(!q) return [];
@@ -56,7 +56,7 @@ function searchFoods(q,opts){
     if(!s) return;
     out.push({food,score:s+Math.min(15,3*(rc[id]||0))+(fav.includes(id)?8:0)+extra,len:name.length});
   };
-  FOODS.forEach(f=>{const b=f.base, name=normQ(b.n); push(f,f.id,name,match(name,b.a.map(normQ),b.py),0)});
+  FOODS.forEach(f=>{if(f.hide) return; const b=f.base, name=normQ(b.n); push(f,f.id,name,match(name,b.a.map(normQ),b.py),0)});
   (opts.my||[]).forEach(f=>{const name=normQ(f.n); push(f,f.id,name,match(name,[],name.replace(/[^a-z]/g,"")),5)});
   out.sort((a,b)=>b.score-a.score||a.len-b.len);
   return out.slice(0,limit).map(x=>({food:x.food,score:x.score}));

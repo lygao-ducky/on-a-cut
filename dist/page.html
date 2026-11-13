@@ -273,7 +273,10 @@ body.lock{overflow:hidden}
 /* On a Cut 食物库：只有数据，无逻辑。浏览器里挂在 self.OnACutFoods，Node 里走 module.exports。
    每条：id 唯一（旧 id 不能改）；cat 营养分类；g 场景分组；n 纯名称；a 别名；py 拼音首字母；
    u 份量（第一个是基准，x=1；其余按 x 倍换算，变体 id 为 <id>@<k>）；p/c/f 基准份量的蛋白 / 碳水 / 脂肪（g）；
-   k 可选的基准份量热量；top 出现在分类默认格子里；tags 饮食标签。数值均为按常见份量估算。 */
+   k 可选的基准份量热量；top 出现在分类默认格子里（按大众常吃挑选，每个分类 10–12 个）；tags 饮食标签。数值均为按常见份量估算。
+   hide 可选，值为 1：只为兼容旧记录而保留，不进搜索结果和默认格子；FBY 里照常存在。有 hide 的条目不能同时有 top。
+   cat 为 sweet 的条目，g 只能是 sweet（甜点）或 snack（饮品零食），对冲页按此分组。
+   每个分段里，带 top 的条目排在前面，顺序就是分类格子的显示顺序。 */
 (function(root){
 "use strict";
 const CATS=[["pro","蛋白质"],["carb","主食"],["veg","蔬果"],["fat","油脂"],["sweet","甜点"]];
@@ -282,43 +285,51 @@ const GROUPS=[["home","家常"],["west","西式轻食"],["out","外卖外食"],[
 const TAGS={meat:"畜禽肉",pork:"猪肉",beef:"牛肉",poultry:"禽肉",fish:"鱼",seafood:"虾蟹贝等海鲜",egg:"蛋",dairy:"奶制品",whey:"乳清蛋白",soy:"大豆制品",gluten:"含麸质",nut:"坚果和花生",alcohol:"含酒精"};
 const FOODS=[
  /* ---------- 家常 ---------- */
+ {id:"chicken",cat:"pro",g:"home",n:"鸡胸肉",a:["鸡胸","鸡脯肉"],py:"jxr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:31,c:0,f:3.5,top:1,tags:["meat","poultry"]},
+ {id:"chleg",cat:"pro",g:"home",n:"鸡腿肉",a:["鸡腿","去皮鸡腿"],py:"jtr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:26,c:0,f:8,top:1,tags:["meat","poultry"]},
+ {id:"egg",cat:"pro",g:"home",n:"鸡蛋",a:["水煮蛋","白煮蛋","煮鸡蛋"],py:"jd",u:[{k:"one",l:"1 个",x:1},{k:"two",l:"2 个",x:2}],p:6.5,c:0.5,f:5,top:1,tags:["egg"]},
  {id:"lean",cat:"pro",g:"home",n:"瘦肉",a:["瘦猪肉","里脊","精肉"],py:"sr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:30,c:0,f:3,top:1,tags:["meat"]},
  {id:"beef",cat:"pro",g:"home",n:"瘦牛肉",a:["牛肉","牛腱","牛里脊"],py:"snr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:30,c:0,f:8,top:1,tags:["meat","beef"]},
- {id:"chicken",cat:"pro",g:"home",n:"鸡胸肉",a:["鸡胸","鸡脯肉"],py:"jxr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:31,c:0,f:3.5,top:1,tags:["meat","poultry"]},
- {id:"chleg",cat:"pro",g:"home",n:"鸡腿肉",a:["鸡腿","去皮鸡腿"],py:"jtr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:26,c:0,f:8,tags:["meat","poultry"]},
+ {id:"fish",cat:"pro",g:"home",n:"鱼肉",a:["鲈鱼","鳕鱼","龙利鱼","巴沙鱼","带鱼"],py:"yr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:22,c:0,f:3,top:1,tags:["fish"]},
+ {id:"shrimp",cat:"pro",g:"home",n:"虾仁",a:["虾","大虾","基围虾"],py:"xr",u:[{k:"palm",l:"1 掌",x:1},{k:"g100",l:"100g",x:1}],p:20,c:0,f:1,top:1,tags:["seafood"]},
+ {id:"tofu",cat:"pro",g:"home",n:"豆腐",a:["嫩豆腐","北豆腐","老豆腐","内酯豆腐"],py:"df",u:[{k:"half",l:"半盒",x:1},{k:"box",l:"1 盒",x:2}],p:12,c:3,f:7,top:1,tags:["soy"]},
+ {id:"soymilk",cat:"pro",g:"home",n:"豆浆",a:["无糖豆浆","现磨豆浆"],py:"dj",u:[{k:"cup",l:"1 杯 300ml",x:1},{k:"ml100",l:"100ml",x:0.33}],p:9,c:4.5,f:5,top:1,tags:["soy"]},
+ {id:"milk",cat:"pro",g:"home",n:"全脂牛奶",a:["纯牛奶","鲜牛奶"],py:"qznn",u:[{k:"ml250",l:"250ml",x:1},{k:"ml100",l:"100ml",x:0.4}],p:8,c:12,f:9,top:1,tags:["dairy"]},
+ {id:"rice",cat:"carb",g:"home",n:"米饭/杂粮饭",a:["白饭","大米饭","糙米饭","二米饭"],py:"mfzlf",u:[{k:"fist",l:"1 拳",x:1},{k:"bowl",l:"1 碗",x:1.5},{k:"g100",l:"100g",x:0.87}],p:3,c:33,f:0.5,top:1,tags:[]},
+ {id:"noodle",cat:"carb",g:"home",n:"面条",a:["挂面","煮面","汤面"],py:"mt",u:[{k:"fist",l:"1 拳",x:1},{k:"bowl",l:"1 碗",x:2.5}],p:4,c:30,f:0.5,top:1,tags:["gluten"]},
+ {id:"mifen",cat:"carb",g:"home",n:"米粉",a:["米线","河粉"],py:"mf",u:[{k:"bowl",l:"1 碗",x:1},{k:"fist",l:"1 拳",x:0.5}],p:2,c:50,f:0.5,top:1,tags:[]},
+ {id:"mantou",cat:"carb",g:"home",n:"馒头",a:["白馒头","杂粮馒头"],py:"mt",u:[{k:"one",l:"1 个",x:1},{k:"half",l:"半个",x:0.5}],p:7,c:47,f:1,top:1,tags:["gluten"]},
+ {id:"baozi",cat:"carb",g:"home",n:"肉包子",a:["包子","猪肉包","鲜肉包"],py:"rbz",u:[{k:"one",l:"1 个",x:1}],p:7,c:30,f:7,top:1,tags:["meat","pork","gluten"]},
+ {id:"jiaozi",cat:"carb",g:"home",n:"饺子",a:["水饺","煮饺"],py:"jz",u:[{k:"one",l:"1 个",x:1},{k:"five",l:"5 个",x:5},{k:"ten",l:"10 个",x:10}],p:1.5,c:4.5,f:1.5,top:1,tags:["meat","pork","gluten"]},
+ {id:"porridge",cat:"carb",g:"home",n:"白粥",a:["粥","大米粥","稀饭"],py:"bz",u:[{k:"bowl",l:"1 碗",x:1},{k:"half",l:"半碗",x:0.5}],p:3.5,c:30,f:1,top:1,tags:[]},
+ {id:"corn",cat:"carb",g:"home",n:"玉米",a:["甜玉米","煮玉米","玉米棒"],py:"ym",u:[{k:"one",l:"1 根",x:1},{k:"half",l:"半根",x:0.5}],p:6,c:34,f:2,top:1,tags:[]},
+ {id:"yam",cat:"carb",g:"home",n:"紫薯/红薯",a:["地瓜","番薯","蒸红薯"],py:"zshs",u:[{k:"fist",l:"1 拳",x:1},{k:"g100",l:"100g",x:0.8}],p:2,c:30,f:0,top:1,tags:[]},
+ {id:"potato",cat:"carb",g:"home",n:"土豆",a:["马铃薯","洋芋"],py:"td",u:[{k:"fist",l:"1 拳",x:1},{k:"g100",l:"100g",x:0.77}],p:2.5,c:22,f:0,top:1,tags:[]},
+ {id:"veg",cat:"veg",g:"home",n:"蔬菜",a:["青菜","绿叶菜","生菜","菠菜","白菜"],py:"sc",u:[{k:"two",l:"两捧",x:1},{k:"one",l:"一捧",x:0.5}],p:3,c:8,f:0,top:1,tags:[]},
+ {id:"stirveg",cat:"veg",g:"home",n:"清炒时蔬",a:["炒青菜","蒜蓉青菜","炒菜心"],py:"qcss",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:4,c:8,f:8,top:1,tags:[]},
+ {id:"broccoli",cat:"veg",g:"home",n:"西兰花",a:["西蓝花","花椰菜"],py:"xlh",u:[{k:"fist",l:"1 拳",x:1}],p:3.5,c:4,f:0.5,top:1,tags:[]},
+ {id:"tomato",cat:"veg",g:"home",n:"番茄",a:["西红柿"],py:"fq",u:[{k:"one",l:"1 个",x:1}],p:1.5,c:5,f:0.5,top:1,tags:[]},
+ {id:"cucumber",cat:"veg",g:"home",n:"黄瓜",a:["青瓜"],py:"hg",u:[{k:"one",l:"1 根",x:1}],p:1,c:4,f:0,top:1,tags:[]},
+ {id:"oil",cat:"fat",g:"home",n:"烹调油",a:["油","植物油","橄榄油","花生油","菜籽油"],py:"pty",u:[{k:"tsp",l:"1 茶匙",x:1},{k:"tbsp",l:"1 汤匙",x:3}],p:0,c:0,f:5,top:1,tags:[]},
+ {id:"peanut",cat:"fat",g:"home",n:"花生",a:["花生米","水煮花生"],py:"hs",u:[{k:"hand",l:"1 小把",x:1}],p:5,c:3.5,f:9,top:1,tags:["nut"]},
+ {id:"zmj",cat:"fat",g:"home",n:"芝麻酱",a:["麻酱"],py:"zmj",u:[{k:"spoon",l:"1 勺",x:1}],p:3,c:3,f:8,top:1,tags:[]},
+ {id:"wuhua",cat:"fat",g:"home",n:"五花肉",a:["肥肉","三层肉"],py:"whr",u:[{k:"palm",l:"1 掌",x:1}],p:13,c:0,f:35,top:1,tags:["meat","pork"]},
  {id:"chwing",cat:"pro",g:"home",n:"鸡翅",a:["鸡中翅","烤翅"],py:"jc",u:[{k:"one",l:"1 个",x:1},{k:"three",l:"3 个",x:3}],p:6,c:0,f:5,tags:["meat","poultry"]},
  {id:"ribs",cat:"pro",g:"home",n:"排骨",a:["猪排骨","小排"],py:"pg",u:[{k:"three",l:"3 块",x:1},{k:"six",l:"6 块",x:2}],p:18,c:0,f:15,tags:["meat","pork"]},
  {id:"duck",cat:"pro",g:"home",n:"鸭肉",a:["鸭胸","鸭腿"],py:"yr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:23,c:0,f:10,tags:["meat","poultry"]},
  {id:"lamb",cat:"pro",g:"home",n:"羊肉",a:["羊腿肉","羊排"],py:"yr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:26,c:0,f:12,tags:["meat"]},
- {id:"fish",cat:"pro",g:"home",n:"鱼肉",a:["鲈鱼","鳕鱼","龙利鱼","巴沙鱼","带鱼"],py:"yr",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:22,c:0,f:3,tags:["fish"]},
- {id:"shrimp",cat:"pro",g:"home",n:"虾仁",a:["虾","大虾","基围虾"],py:"xr",u:[{k:"palm",l:"1 掌",x:1},{k:"g100",l:"100g",x:1}],p:20,c:0,f:1,top:1,tags:["seafood"]},
  {id:"eggw",cat:"pro",g:"home",n:"鸡蛋白",a:["蛋清","蛋白"],py:"jdb",u:[{k:"one",l:"1 个",x:1},{k:"three",l:"3 个",x:3}],p:3.5,c:0,f:0,tags:["egg"]},
  {id:"teaegg",cat:"pro",g:"home",n:"茶叶蛋",a:["卤蛋"],py:"cyd",u:[{k:"one",l:"1 个",x:1}],p:6.5,c:1,f:5,tags:["egg"]},
- {id:"egg",cat:"pro",g:"home",n:"鸡蛋",a:["水煮蛋","白煮蛋","煮鸡蛋"],py:"jd",u:[{k:"one",l:"1 个",x:1},{k:"two",l:"2 个",x:2}],p:6.5,c:0.5,f:5,top:1,tags:["egg"]},
- {id:"milk",cat:"pro",g:"home",n:"全脂牛奶",a:["纯牛奶","鲜牛奶"],py:"qznn",u:[{k:"ml250",l:"250ml",x:1},{k:"ml100",l:"100ml",x:0.4}],p:8,c:12,f:9,top:1,tags:["dairy"]},
- {id:"lmilk",cat:"pro",g:"home",n:"低脂牛奶",a:["脱脂牛奶"],py:"dznn",u:[{k:"ml250",l:"250ml",x:1},{k:"ml100",l:"100ml",x:0.4}],p:8.5,c:12.5,f:4,top:1,tags:["dairy"]},
- {id:"soy",cat:"pro",g:"home",n:"无糖豆浆粉",a:["豆粉"],py:"wtdjf",u:[{k:"bag",l:"1 袋",x:1}],p:6,c:3,f:3,top:1,tags:["soy"]},
- {id:"soymilk",cat:"pro",g:"home",n:"豆浆",a:["无糖豆浆","现磨豆浆"],py:"dj",u:[{k:"cup",l:"1 杯 300ml",x:1},{k:"ml100",l:"100ml",x:0.33}],p:9,c:4.5,f:5,tags:["soy"]},
- {id:"tofu",cat:"pro",g:"home",n:"豆腐",a:["嫩豆腐","北豆腐","老豆腐","内酯豆腐"],py:"df",u:[{k:"half",l:"半盒",x:1},{k:"box",l:"1 盒",x:2}],p:12,c:3,f:7,top:1,tags:["soy"]},
+ {id:"lmilk",cat:"pro",g:"home",n:"低脂牛奶",a:["脱脂牛奶"],py:"dznn",u:[{k:"ml250",l:"250ml",x:1},{k:"ml100",l:"100ml",x:0.4}],p:8.5,c:12.5,f:4,tags:["dairy"]},
+ {id:"soy",cat:"pro",g:"home",n:"无糖豆浆粉",a:["豆粉"],py:"wtdjf",u:[{k:"bag",l:"1 袋",x:1}],p:6,c:3,f:3,tags:["soy"]},
  {id:"dtofu",cat:"pro",g:"home",n:"豆腐干",a:["豆干","香干"],py:"dfg",u:[{k:"three",l:"3 片",x:1}],p:10,c:5,f:3,tags:["soy"]},
  {id:"yuba",cat:"pro",g:"home",n:"腐竹",a:["豆皮","千张"],py:"fz",u:[{k:"fist",l:"1 拳",x:1}],p:13.5,c:6.5,f:6.5,tags:["soy"]},
  {id:"edamame",cat:"pro",g:"home",n:"毛豆",a:["盐水毛豆"],py:"md",u:[{k:"hand",l:"1 把",x:1}],p:6.5,c:5,f:2.5,tags:["soy"]},
  {id:"jnr",cat:"pro",g:"home",n:"酱牛肉",a:["卤牛肉","牛腱子"],py:"jnr",u:[{k:"five",l:"5 片",x:1},{k:"g100",l:"100g",x:1.7}],p:19,c:1.5,f:7,tags:["meat","beef"]},
- {id:"wuhua",cat:"fat",g:"home",n:"五花肉",a:["肥肉","三层肉"],py:"whr",u:[{k:"palm",l:"1 掌",x:1}],p:13,c:0,f:35,tags:["meat","pork"]},
- {id:"rice",cat:"carb",g:"home",n:"米饭/杂粮饭",a:["白饭","大米饭","糙米饭","二米饭"],py:"mfzlf",u:[{k:"fist",l:"1 拳",x:1},{k:"bowl",l:"1 碗",x:1.5},{k:"g100",l:"100g",x:0.87}],p:3,c:33,f:0.5,top:1,tags:[]},
- {id:"yam",cat:"carb",g:"home",n:"紫薯/红薯",a:["地瓜","番薯","蒸红薯"],py:"zshs",u:[{k:"fist",l:"1 拳",x:1},{k:"g100",l:"100g",x:0.8}],p:2,c:30,f:0,top:1,tags:[]},
- {id:"noodle",cat:"carb",g:"home",n:"面条",a:["挂面","煮面","汤面"],py:"mt",u:[{k:"fist",l:"1 拳",x:1},{k:"bowl",l:"1 碗",x:2.5}],p:4,c:30,f:0.5,top:1,tags:["gluten"]},
- {id:"porridge",cat:"carb",g:"home",n:"白粥",a:["粥","大米粥","稀饭"],py:"bz",u:[{k:"bowl",l:"1 碗",x:1},{k:"half",l:"半碗",x:0.5}],p:3.5,c:30,f:1,top:1,tags:[]},
  {id:"millet",cat:"carb",g:"home",n:"小米粥",a:["小米稀饭"],py:"xmz",u:[{k:"bowl",l:"1 碗",x:1}],p:4,c:25,f:1,tags:[]},
  {id:"pdsrz",cat:"carb",g:"home",n:"皮蛋瘦肉粥",a:["咸粥"],py:"pdsrz",u:[{k:"bowl",l:"1 碗",x:1}],p:10,c:30,f:5,tags:["meat","pork","egg"]},
- {id:"mantou",cat:"carb",g:"home",n:"馒头",a:["白馒头","杂粮馒头"],py:"mt",u:[{k:"one",l:"1 个",x:1},{k:"half",l:"半个",x:0.5}],p:7,c:47,f:1,top:1,tags:["gluten"]},
- {id:"baozi",cat:"carb",g:"home",n:"肉包子",a:["包子","猪肉包","鲜肉包"],py:"rbz",u:[{k:"one",l:"1 个",x:1}],p:7,c:30,f:7,tags:["meat","pork","gluten"]},
  {id:"vbaozi",cat:"carb",g:"home",n:"菜包子",a:["素包子","香菇菜包"],py:"cbz",u:[{k:"one",l:"1 个",x:1}],p:5,c:30,f:3,tags:["gluten"]},
- {id:"jiaozi",cat:"carb",g:"home",n:"饺子",a:["水饺","煮饺"],py:"jz",u:[{k:"one",l:"1 个",x:1},{k:"five",l:"5 个",x:5},{k:"ten",l:"10 个",x:10}],p:1.5,c:4.5,f:1.5,tags:["meat","pork","gluten"]},
  {id:"wonton",cat:"carb",g:"home",n:"馄饨",a:["云吞","抄手"],py:"ht",u:[{k:"bowl",l:"1 碗",x:1}],p:12,c:30,f:8,tags:["meat","pork","gluten"]},
- {id:"mifen",cat:"carb",g:"home",n:"米粉",a:["米线","河粉"],py:"mf",u:[{k:"bowl",l:"1 碗",x:1},{k:"fist",l:"1 拳",x:0.5}],p:2,c:50,f:0.5,tags:[]},
- {id:"corn",cat:"carb",g:"home",n:"玉米",a:["甜玉米","煮玉米","玉米棒"],py:"ym",u:[{k:"one",l:"1 根",x:1},{k:"half",l:"半根",x:0.5}],p:6,c:34,f:2,top:1,tags:[]},
- {id:"potato",cat:"carb",g:"home",n:"土豆",a:["马铃薯","洋芋"],py:"td",u:[{k:"fist",l:"1 拳",x:1},{k:"g100",l:"100g",x:0.77}],p:2.5,c:22,f:0,top:1,tags:[]},
  {id:"chyam",cat:"carb",g:"home",n:"山药",a:["铁棍山药","淮山"],py:"sy",u:[{k:"fist",l:"1 拳",x:1},{k:"g100",l:"100g",x:0.77}],p:2.5,c:16,f:0,tags:[]},
  {id:"youtiao",cat:"carb",g:"home",n:"油条",a:[],py:"yt",u:[{k:"one",l:"1 根",x:1},{k:"half",l:"半根",x:0.5}],p:5,c:35.5,f:12.5,tags:["gluten"]},
  {id:"szb",cat:"carb",g:"home",n:"手抓饼",a:["葱油饼","千层饼"],py:"szb",u:[{k:"one",l:"1 张",x:1}],p:6,c:38,f:13.5,tags:["gluten"]},
@@ -326,7 +337,6 @@ const FOODS=[
  {id:"qjrs",cat:"pro",g:"home",n:"青椒肉丝",a:[],py:"qjrs",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:18,c:8,f:16,tags:["meat","pork"]},
  {id:"mapo",cat:"pro",g:"home",n:"麻婆豆腐",a:[],py:"mpdf",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:16,c:10,f:20,tags:["soy","meat"]},
  {id:"kungpao",cat:"pro",g:"home",n:"宫保鸡丁",a:["宫爆鸡丁"],py:"gbjd",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:24,c:14,f:20,tags:["meat","poultry","nut"]},
- {id:"stirveg",cat:"veg",g:"home",n:"清炒时蔬",a:["炒青菜","蒜蓉青菜","炒菜心"],py:"qcss",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:4,c:8,f:8,tags:[]},
  {id:"hsr",cat:"fat",g:"home",n:"红烧肉",a:["东坡肉"],py:"hsr",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:15,c:8,f:40,tags:["meat","pork"]},
  {id:"yxrs",cat:"pro",g:"home",n:"鱼香肉丝",a:[],py:"yxrs",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:16,c:18,f:18,tags:["meat","pork"]},
  {id:"hgr",cat:"pro",g:"home",n:"回锅肉",a:[],py:"hgr",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:16,c:8,f:30,tags:["meat","pork"]},
@@ -341,33 +351,26 @@ const FOODS=[
  {id:"zcdht",cat:"pro",g:"home",n:"紫菜蛋花汤",a:["蛋花汤","番茄蛋汤"],py:"zcdht",u:[{k:"bowl",l:"1 碗",x:1}],p:4,c:2,f:3,tags:["egg"]},
  {id:"zdg",cat:"pro",g:"home",n:"蒸蛋羹",a:["鸡蛋羹","水蒸蛋","蒸水蛋"],py:"zdg",u:[{k:"bowl",l:"1 碗",x:1}],p:13,c:1,f:10,tags:["egg"]},
  {id:"dsx",cat:"veg",g:"home",n:"地三鲜",a:[],py:"dsx",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:4,c:26,f:18,tags:[]},
- {id:"veg",cat:"veg",g:"home",n:"蔬菜",a:["青菜","绿叶菜","生菜","菠菜","白菜"],py:"sc",u:[{k:"two",l:"两捧",x:1},{k:"one",l:"一捧",x:0.5}],p:3,c:8,f:0,top:1,tags:[]},
- {id:"broccoli",cat:"veg",g:"home",n:"西兰花",a:["西蓝花","花椰菜"],py:"xlh",u:[{k:"fist",l:"1 拳",x:1}],p:3.5,c:4,f:0.5,top:1,tags:[]},
- {id:"tomato",cat:"veg",g:"home",n:"番茄",a:["西红柿"],py:"fq",u:[{k:"one",l:"1 个",x:1}],p:1.5,c:5,f:0.5,top:1,tags:[]},
- {id:"cucumber",cat:"veg",g:"home",n:"黄瓜",a:["青瓜"],py:"hg",u:[{k:"one",l:"1 根",x:1}],p:1,c:4,f:0,top:1,tags:[]},
  {id:"carrot",cat:"veg",g:"home",n:"胡萝卜",a:["红萝卜"],py:"hlb",u:[{k:"one",l:"1 根",x:1}],p:1,c:8,f:0,tags:[]},
  {id:"mushroom",cat:"veg",g:"home",n:"蘑菇",a:["香菇","金针菇","菌菇","杏鲍菇"],py:"mg",u:[{k:"hand",l:"1 捧",x:1}],p:3,c:3,f:0,tags:[]},
  {id:"pumpkin",cat:"veg",g:"home",n:"南瓜",a:["蒸南瓜","贝贝南瓜"],py:"ng",u:[{k:"fist",l:"1 拳",x:1}],p:1,c:8,f:0,tags:[]},
- {id:"oil",cat:"fat",g:"home",n:"烹调油",a:["油","植物油","橄榄油","花生油","菜籽油"],py:"pty",u:[{k:"tsp",l:"1 茶匙",x:1},{k:"tbsp",l:"1 汤匙",x:3}],p:0,c:0,f:5,top:1,tags:[]},
- {id:"zmj",cat:"fat",g:"home",n:"芝麻酱",a:["麻酱"],py:"zmj",u:[{k:"spoon",l:"1 勺",x:1}],p:3,c:3,f:8,top:1,tags:[]},
- {id:"peanut",cat:"fat",g:"home",n:"花生",a:["花生米","水煮花生"],py:"hs",u:[{k:"hand",l:"1 小把",x:1}],p:5,c:3.5,f:9,top:1,tags:["nut"]},
  /* ---------- 西式轻食 ---------- */
- {id:"salmon",cat:"pro",g:"west",n:"三文鱼",a:["鲑鱼"],py:"swy",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:25,c:0,f:15,top:1,tags:["fish"]},
- {id:"whey",cat:"pro",g:"west",n:"蛋白粉",a:["乳清蛋白"],py:"dbf",u:[{k:"scoop",l:"1 大勺",x:1},{k:"half",l:"半勺",x:0.5}],p:23,c:2,f:2,top:1,tags:["whey","dairy"]},
  {id:"yog",cat:"pro",g:"west",n:"无糖希腊酸奶",a:["希腊酸奶","无糖酸奶"],py:"wtxlsn",u:[{k:"g150",l:"150g",x:1},{k:"g100",l:"100g",x:0.67}],p:13,c:6,f:3,top:1,tags:["dairy"]},
- {id:"bag3",cat:"carb",g:"west",n:"法棍",a:["法式长棍","法棒"],py:"fg",u:[{k:"third",l:"1/3 根",x:1}],p:7,c:45,f:1,top:1,tags:["gluten"]},
- {id:"bag2",cat:"carb",g:"west",n:"法棍",a:["法式长棍","法棒"],py:"fg",u:[{k:"half",l:"半根",x:1}],p:11,c:70,f:1.5,top:1,tags:["gluten"]},
- {id:"toast",cat:"carb",g:"west",n:"吐司",a:["白吐司","面包片","切片面包"],py:"ts",u:[{k:"one",l:"1 片",x:1},{k:"two",l:"2 片",x:2}],p:3,c:14,f:1,top:1,tags:["gluten"]},
+ {id:"whey",cat:"pro",g:"west",n:"蛋白粉",a:["乳清蛋白"],py:"dbf",u:[{k:"scoop",l:"1 大勺",x:1},{k:"half",l:"半勺",x:0.5}],p:23,c:2,f:2,top:1,tags:["whey","dairy"]},
  {id:"oat",cat:"carb",g:"west",n:"燕麦",a:["燕麦片","麦片"],py:"ym",u:[{k:"g20",l:"20g",x:1},{k:"g10",l:"10g",x:0.5},{k:"g40",l:"40g",x:2}],p:2.5,c:13,f:1.5,top:1,tags:[]},
+ {id:"toast",cat:"carb",g:"west",n:"吐司",a:["白吐司","面包片","切片面包"],py:"ts",u:[{k:"one",l:"1 片",x:1},{k:"two",l:"2 片",x:2}],p:3,c:14,f:1,top:1,tags:["gluten"]},
+ {id:"pb",cat:"fat",g:"west",n:"花生酱",a:[],py:"hsj",u:[{k:"spoon",l:"1 勺",x:1}],p:4,c:3,f:8,top:1,tags:["nut"]},
+ {id:"cheese",cat:"fat",g:"west",n:"芝士片",a:["奶酪","起司"],py:"zsp",u:[{k:"one",l:"1 片",x:1}],p:4,c:0.5,f:5,top:1,tags:["dairy"]},
  {id:"avo",cat:"fat",g:"west",n:"牛油果",a:["鳄梨"],py:"nyg",u:[{k:"half",l:"半个",x:1},{k:"one",l:"1 个",x:2}],p:1.5,c:2,f:11,top:1,tags:[]},
- {id:"wwbread",cat:"carb",g:"west",n:"全麦面包",a:["全麦吐司","黑麦面包"],py:"qmmb",u:[{k:"one",l:"1 片",x:1},{k:"two",l:"2 片",x:2}],p:4,c:17,f:1.5,top:1,tags:["gluten"]},
+ {id:"salmon",cat:"pro",g:"west",n:"三文鱼",a:["鲑鱼"],py:"swy",u:[{k:"palm",l:"1 掌",x:1},{k:"raw100",l:"生重 100g",x:0.75}],p:25,c:0,f:15,tags:["fish"]},
+ {id:"bag3",cat:"carb",g:"west",n:"法棍",a:["法式长棍","法棒"],py:"fg",u:[{k:"third",l:"1/3 根",x:1},{k:"half",l:"半根",x:1.5},{k:"one",l:"1 根",x:3}],p:7,c:45,f:1,tags:["gluten"]},
+ {id:"bag2",cat:"carb",g:"west",n:"法棍",a:["法式长棍","法棒"],py:"fg",u:[{k:"half",l:"半根",x:1}],p:11,c:70,f:1.5,hide:1,tags:["gluten"]},
+ {id:"wwbread",cat:"carb",g:"west",n:"全麦面包",a:["全麦吐司","黑麦面包"],py:"qmmb",u:[{k:"one",l:"1 片",x:1},{k:"two",l:"2 片",x:2}],p:4,c:17,f:1.5,tags:["gluten"]},
  {id:"bagel",cat:"carb",g:"west",n:"贝果",a:["百吉饼"],py:"bg",u:[{k:"one",l:"1 个",x:1},{k:"half",l:"半个",x:0.5}],p:9,c:48,f:1.5,tags:["gluten"]},
  {id:"pasta",cat:"carb",g:"west",n:"意面",a:["意大利面","通心粉"],py:"ym",u:[{k:"fist",l:"1 拳",x:1},{k:"plate",l:"1 盘",x:2.5}],p:6.5,c:34,f:1,tags:["gluten"]},
  {id:"quinoa",cat:"carb",g:"west",n:"藜麦",a:["三色藜麦"],py:"lm",u:[{k:"fist",l:"1 拳",x:1}],p:5,c:25,f:2.5,tags:[]},
  {id:"fyog",cat:"pro",g:"west",n:"风味酸奶",a:["酸奶","含糖酸奶"],py:"fwsn",u:[{k:"cup",l:"1 杯 150g",x:1}],p:4.5,c:18,f:4,tags:["dairy"]},
- {id:"cheese",cat:"fat",g:"west",n:"芝士片",a:["奶酪","起司"],py:"zsp",u:[{k:"one",l:"1 片",x:1}],p:4,c:0.5,f:5,top:1,tags:["dairy"]},
- {id:"butter",cat:"fat",g:"west",n:"黄油",a:["牛油"],py:"hy",u:[{k:"pat",l:"1 小块",x:1}],p:0,c:0,f:8,top:1,tags:["dairy"]},
- {id:"pb",cat:"fat",g:"west",n:"花生酱",a:[],py:"hsj",u:[{k:"spoon",l:"1 勺",x:1}],p:4,c:3,f:8,top:1,tags:["nut"]},
+ {id:"butter",cat:"fat",g:"west",n:"黄油",a:["牛油"],py:"hy",u:[{k:"pat",l:"1 小块",x:1}],p:0,c:0,f:8,tags:["dairy"]},
  {id:"chsalad",cat:"pro",g:"west",n:"鸡胸沙拉",a:["鸡肉沙拉"],py:"jxsl",u:[{k:"one",l:"1 份",x:1},{k:"half",l:"半份",x:0.5}],p:30,c:10,f:10,tags:["meat","poultry"]},
  {id:"tuna",cat:"pro",g:"west",n:"金枪鱼罐头",a:["吞拿鱼","水浸金枪鱼"],py:"jqygt",u:[{k:"can",l:"1 罐",x:1}],p:24,c:0,f:1,tags:["fish"]},
  {id:"pbar",cat:"pro",g:"west",n:"蛋白棒",a:["能量棒"],py:"dbb",u:[{k:"one",l:"1 根",x:1}],p:20,c:20,f:8,tags:["dairy"]},
@@ -417,48 +420,49 @@ const FOODS=[
  {id:"cqxm",cat:"carb",g:"out",n:"重庆小面",a:["小面"],py:"cqxm",u:[{k:"bowl",l:"1 碗",x:1}],p:14,c:75,f:18,k:520,tags:["gluten"]},
  {id:"rgm",cat:"carb",g:"out",n:"热干面",a:[],py:"rgm",u:[{k:"bowl",l:"1 碗",x:1}],p:16,c:80,f:22,k:580,tags:["gluten"]},
  /* ---------- 零食饮品 ---------- */
+ {id:"apple",cat:"veg",g:"snack",n:"苹果",a:[],py:"pg",u:[{k:"one",l:"1 个",x:1},{k:"half",l:"半个",x:0.5}],p:0.5,c:25,f:0.5,top:1,tags:[]},
+ {id:"banana",cat:"veg",g:"snack",n:"香蕉",a:[],py:"xj",u:[{k:"half",l:"半根",x:1},{k:"one",l:"1 根",x:2}],p:0.5,c:12,f:0,top:1,tags:[]},
+ {id:"orange",cat:"veg",g:"snack",n:"橙子",a:["橘子","柑橘","柚子"],py:"cz",u:[{k:"one",l:"1 个",x:1}],p:1,c:17,f:0,top:1,tags:[]},
+ {id:"watermelon",cat:"veg",g:"snack",n:"西瓜",a:[],py:"xg",u:[{k:"one",l:"1 块",x:1}],p:1,c:15,f:0,top:1,tags:[]},
+ {id:"grape",cat:"veg",g:"snack",n:"葡萄",a:["提子"],py:"pt",u:[{k:"bunch",l:"1 小串",x:1}],p:0.5,c:17,f:0,top:1,tags:[]},
+ {id:"fruit",cat:"veg",g:"snack",n:"水果",a:["桃子","梨","李子"],py:"sg",u:[{k:"fist",l:"1 拳",x:1}],p:0.5,c:15,f:0,top:1,tags:[]},
+ {id:"nuts",cat:"fat",g:"snack",n:"坚果",a:["混合坚果","每日坚果","腰果","开心果"],py:"jg",u:[{k:"hand",l:"1 小把",x:1}],p:3,c:3,f:8,top:1,tags:["nut"]},
+ {id:"guazi",cat:"fat",g:"snack",n:"瓜子",a:["葵花籽"],py:"gz",u:[{k:"hand",l:"1 把",x:1}],p:3.5,c:2,f:8,top:1,tags:["nut"]},
+ {id:"walnut",cat:"fat",g:"snack",n:"核桃",a:["核桃仁"],py:"ht",u:[{k:"two",l:"2 个",x:1}],p:2.5,c:2,f:10,top:1,tags:["nut"]},
  {id:"mtfull",cat:"sweet",g:"snack",n:"全糖奶茶",a:["珍珠奶茶"],py:"qtnc",u:[{k:"cup",l:"1 杯 500ml",x:1}],p:3,c:70,f:12,k:400,top:1,tags:["dairy"]},
- {id:"mthalf",cat:"sweet",g:"snack",n:"半糖奶茶",a:["少糖奶茶"],py:"btnc",u:[{k:"cup",l:"1 杯 500ml",x:1}],p:3,c:48,f:12,k:310,tags:["dairy"]},
+ {id:"mthalf",cat:"sweet",g:"snack",n:"半糖奶茶",a:["少糖奶茶"],py:"btnc",u:[{k:"cup",l:"1 杯 500ml",x:1}],p:3,c:48,f:12,k:310,top:1,tags:["dairy"]},
+ {id:"cola",cat:"sweet",g:"snack",n:"可乐",a:["汽水","雪碧"],py:"kl",u:[{k:"can",l:"1 罐 330ml",x:1},{k:"bottle",l:"1 瓶 500ml",x:1.5}],p:0,c:35,f:0,k:140,top:1,tags:[]},
+ {id:"juice",cat:"sweet",g:"snack",n:"果汁",a:["橙汁","苹果汁"],py:"gz",u:[{k:"cup",l:"1 杯 250ml",x:1}],p:0.5,c:26,f:0,k:105,top:1,tags:[]},
+ {id:"beer",cat:"sweet",g:"snack",n:"啤酒",a:[],py:"pj",u:[{k:"can",l:"1 罐 330ml",x:1},{k:"bottle",l:"1 瓶 500ml",x:1.5}],p:1,c:10,f:0,k:140,top:1,tags:["alcohol","gluten"]},
+ {id:"chips",cat:"sweet",g:"snack",n:"薯片",a:[],py:"sp",u:[{k:"bag",l:"1 小包",x:1}],p:2.5,c:20,f:14,k:215,top:1,tags:[]},
+ {id:"choc",cat:"sweet",g:"snack",n:"巧克力",a:["牛奶巧克力","黑巧克力"],py:"qkl",u:[{k:"two",l:"2 小块",x:1}],p:1.5,c:11,f:7,k:115,top:1,tags:["dairy"]},
  {id:"mtzero",cat:"sweet",g:"snack",n:"无糖奶茶",a:["不另加糖奶茶"],py:"wtnc",u:[{k:"cup",l:"1 杯 500ml",x:1}],p:3,c:22,f:12,k:210,tags:["dairy"]},
+ {id:"tea",cat:"sweet",g:"snack",n:"奶茶",a:[],py:"nc",u:[{k:"one",l:"1 杯",x:1}],p:3,c:45,f:8,tags:["dairy"]},
  {id:"latte",cat:"pro",g:"snack",n:"拿铁",a:["咖啡","牛奶咖啡","生椰拿铁"],py:"nt",u:[{k:"cup",l:"1 杯",x:1}],p:9,c:13,f:9,k:170,tags:["dairy"]},
  {id:"americano",cat:"carb",g:"snack",n:"美式",a:["黑咖啡","美式咖啡","冰美式"],py:"ms",u:[{k:"cup",l:"1 杯",x:1}],p:0.5,c:1,f:0,k:6,tags:[]},
- {id:"cola",cat:"sweet",g:"snack",n:"可乐",a:["汽水","雪碧"],py:"kl",u:[{k:"can",l:"1 罐 330ml",x:1},{k:"bottle",l:"1 瓶 500ml",x:1.5}],p:0,c:35,f:0,k:140,top:1,tags:[]},
  {id:"colazero",cat:"carb",g:"snack",n:"无糖可乐",a:["零度可乐","健怡可乐","无糖汽水"],py:"wtkl",u:[{k:"can",l:"1 罐 330ml",x:1}],p:0,c:0,f:0,k:0,tags:[]},
- {id:"juice",cat:"sweet",g:"snack",n:"果汁",a:["橙汁","苹果汁"],py:"gz",u:[{k:"cup",l:"1 杯 250ml",x:1}],p:0.5,c:26,f:0,k:105,tags:[]},
- {id:"beer",cat:"sweet",g:"snack",n:"啤酒",a:[],py:"pj",u:[{k:"can",l:"1 罐 330ml",x:1},{k:"bottle",l:"1 瓶 500ml",x:1.5}],p:1,c:10,f:0,k:140,tags:["alcohol","gluten"]},
  {id:"redwine",cat:"sweet",g:"snack",n:"红酒",a:["葡萄酒","白葡萄酒"],py:"hj",u:[{k:"glass",l:"1 杯 150ml",x:1}],p:0,c:4,f:0,k:125,tags:["alcohol"]},
  {id:"baijiu",cat:"sweet",g:"snack",n:"白酒",a:["烈酒"],py:"bj",u:[{k:"liang",l:"1 两 50ml",x:1}],p:0,c:0,f:0,k:150,tags:["alcohol"]},
  {id:"yakult",cat:"sweet",g:"snack",n:"乳酸菌饮料",a:["养乐多"],py:"rsjyl",u:[{k:"one",l:"1 瓶 100ml",x:1}],p:1,c:16,f:0,k:70,tags:["dairy"]},
  {id:"lemontea",cat:"sweet",g:"snack",n:"柠檬茶",a:["冰红茶"],py:"nmc",u:[{k:"bottle",l:"1 瓶 500ml",x:1}],p:0,c:45,f:0,k:180,tags:[]},
- {id:"chips",cat:"sweet",g:"snack",n:"薯片",a:[],py:"sp",u:[{k:"bag",l:"1 小包",x:1}],p:2.5,c:20,f:14,k:215,top:1,tags:[]},
- {id:"choc",cat:"sweet",g:"snack",n:"巧克力",a:["牛奶巧克力","黑巧克力"],py:"qkl",u:[{k:"two",l:"2 小块",x:1}],p:1.5,c:11,f:7,k:115,top:1,tags:["dairy"]},
  {id:"biscuit",cat:"sweet",g:"snack",n:"饼干",a:["苏打饼干","夹心饼干"],py:"bg",u:[{k:"three",l:"3 片",x:1}],p:2,c:17,f:5,k:120,tags:["gluten"]},
  {id:"jerky",cat:"pro",g:"snack",n:"牛肉干",a:[],py:"nrg",u:[{k:"bag",l:"1 小包",x:1}],p:13.5,c:4,f:2,tags:["meat","beef"]},
- {id:"guazi",cat:"fat",g:"snack",n:"瓜子",a:["葵花籽"],py:"gz",u:[{k:"hand",l:"1 把",x:1}],p:3.5,c:2,f:8,tags:["nut"]},
  {id:"almond",cat:"fat",g:"snack",n:"杏仁",a:["巴旦木"],py:"xr",u:[{k:"ten",l:"10 颗",x:1}],p:2.5,c:2.5,f:6,tags:["nut"]},
- {id:"walnut",cat:"fat",g:"snack",n:"核桃",a:["核桃仁"],py:"ht",u:[{k:"two",l:"2 个",x:1}],p:2.5,c:2,f:10,top:1,tags:["nut"]},
  {id:"date",cat:"veg",g:"snack",n:"红枣",a:["大枣","干枣"],py:"hz",u:[{k:"three",l:"3 颗",x:1}],p:0.5,c:17,f:0,tags:[]},
  {id:"hamsausage",cat:"pro",g:"snack",n:"火腿肠",a:["烤肠"],py:"htc",u:[{k:"one",l:"1 根",x:1}],p:4,c:5,f:5,tags:["meat","pork"]},
- {id:"apple",cat:"veg",g:"snack",n:"苹果",a:[],py:"pg",u:[{k:"one",l:"1 个",x:1},{k:"half",l:"半个",x:0.5}],p:0.5,c:25,f:0.5,top:1,tags:[]},
- {id:"orange",cat:"veg",g:"snack",n:"橙子",a:["橘子","柑橘","柚子"],py:"cz",u:[{k:"one",l:"1 个",x:1}],p:1,c:17,f:0,top:1,tags:[]},
- {id:"grape",cat:"veg",g:"snack",n:"葡萄",a:["提子"],py:"pt",u:[{k:"bunch",l:"1 小串",x:1}],p:0.5,c:17,f:0,tags:[]},
- {id:"watermelon",cat:"veg",g:"snack",n:"西瓜",a:[],py:"xg",u:[{k:"one",l:"1 块",x:1}],p:1,c:15,f:0,top:1,tags:[]},
  {id:"strawberry",cat:"veg",g:"snack",n:"草莓",a:[],py:"cm",u:[{k:"eight",l:"8 颗",x:1}],p:1,c:11,f:0.5,tags:[]},
- {id:"blueberry",cat:"veg",g:"snack",n:"蓝莓",a:[],py:"lm",u:[{k:"box",l:"1 小盒",x:1}],p:1,c:18,f:0.5,top:1,tags:[]},
+ {id:"blueberry",cat:"veg",g:"snack",n:"蓝莓",a:[],py:"lm",u:[{k:"box",l:"1 小盒",x:1}],p:1,c:18,f:0.5,tags:[]},
  {id:"mango",cat:"veg",g:"snack",n:"芒果",a:[],py:"mg",u:[{k:"half",l:"半个",x:1}],p:0.5,c:15,f:0.5,tags:[]},
- {id:"xfq",cat:"veg",g:"snack",n:"小番茄",a:["圣女果","樱桃番茄"],py:"xfq",u:[{k:"ten",l:"10 颗",x:1}],p:1,c:5,f:0,top:1,tags:[]},
- {id:"fruit",cat:"veg",g:"snack",n:"水果",a:["桃子","梨","李子"],py:"sg",u:[{k:"fist",l:"1 拳",x:1}],p:0.5,c:15,f:0,top:1,tags:[]},
- {id:"banana",cat:"veg",g:"snack",n:"香蕉",a:[],py:"xj",u:[{k:"half",l:"半根",x:1},{k:"one",l:"1 根",x:2}],p:0.5,c:12,f:0,top:1,tags:[]},
- {id:"nuts",cat:"fat",g:"snack",n:"坚果",a:["混合坚果","每日坚果","腰果","开心果"],py:"jg",u:[{k:"hand",l:"1 小把",x:1}],p:3,c:3,f:8,top:1,tags:["nut"]},
+ {id:"xfq",cat:"veg",g:"snack",n:"小番茄",a:["圣女果","樱桃番茄"],py:"xfq",u:[{k:"ten",l:"10 颗",x:1}],p:1,c:5,f:0,tags:[]},
  /* ---------- 甜点 ---------- */
- {id:"flan",cat:"sweet",g:"sweet",n:"Flan",a:["法式布丁挞","焦糖布丁"],py:"flan",u:[{k:"one",l:"1 块",x:1}],p:5,c:38,f:12,top:1,tags:["egg","dairy","gluten"]},
- {id:"crois",cat:"sweet",g:"sweet",n:"黄油可颂",a:["可颂","牛角包","羊角包"],py:"hyks",u:[{k:"one",l:"1 个",x:1}],p:5,c:26,f:14,top:1,tags:["dairy","gluten"]},
- {id:"pac",cat:"sweet",g:"sweet",n:"巧克力可颂",a:["巧克力面包"],py:"qklks",u:[{k:"one",l:"1 个",x:1}],p:6,c:32,f:17,top:1,tags:["dairy","gluten"]},
- {id:"cookie",cat:"sweet",g:"sweet",n:"曲奇",a:["黄油曲奇","软曲奇"],py:"qq",u:[{k:"one",l:"1 大块",x:1}],p:2.5,c:28,f:11,top:1,tags:["dairy","gluten"]},
  {id:"cake",cat:"sweet",g:"sweet",n:"蛋糕",a:["奶油蛋糕","生日蛋糕"],py:"dg",u:[{k:"one",l:"1 片",x:1}],p:4,c:40,f:16,top:1,tags:["egg","dairy","gluten"]},
  {id:"ice",cat:"sweet",g:"sweet",n:"冰淇淋",a:["冰激凌"],py:"bql",u:[{k:"one",l:"1 球",x:1},{k:"two",l:"2 球",x:2}],p:2,c:16,f:7,top:1,tags:["dairy"]},
- {id:"tea",cat:"sweet",g:"sweet",n:"奶茶",a:[],py:"nc",u:[{k:"one",l:"1 杯",x:1}],p:3,c:45,f:8,top:1,tags:["dairy"]},
+ {id:"popsicle",cat:"sweet",g:"sweet",n:"雪糕",a:["冰棍","冰棒"],py:"xg",u:[{k:"one",l:"1 支",x:1}],p:2,c:20,f:10,k:180,top:1,tags:["dairy"]},
  {id:"eggtart",cat:"sweet",g:"sweet",n:"蛋挞",a:["葡式蛋挞"],py:"dt",u:[{k:"one",l:"1 个",x:1}],p:3.5,c:20,f:12,k:200,top:1,tags:["egg","dairy","gluten"]},
+ {id:"cookie",cat:"sweet",g:"sweet",n:"曲奇",a:["黄油曲奇","软曲奇"],py:"qq",u:[{k:"one",l:"1 大块",x:1}],p:2.5,c:28,f:11,top:1,tags:["dairy","gluten"]},
+ {id:"flan",cat:"sweet",g:"sweet",n:"Flan",a:["法式布丁挞","焦糖布丁"],py:"flan",u:[{k:"one",l:"1 块",x:1}],p:5,c:38,f:12,tags:["egg","dairy","gluten"]},
+ {id:"crois",cat:"sweet",g:"sweet",n:"黄油可颂",a:["可颂","牛角包","羊角包"],py:"hyks",u:[{k:"one",l:"1 个",x:1}],p:5,c:26,f:14,tags:["dairy","gluten"]},
+ {id:"pac",cat:"sweet",g:"sweet",n:"巧克力可颂",a:["巧克力面包"],py:"qklks",u:[{k:"one",l:"1 个",x:1}],p:6,c:32,f:17,tags:["dairy","gluten"]},
  {id:"mooncake",cat:"sweet",g:"sweet",n:"月饼",a:[],py:"yb",u:[{k:"one",l:"1 个",x:1},{k:"quarter",l:"1/4 个",x:0.25}],p:7,c:55,f:20,k:430,tags:["gluten"]},
  {id:"puff",cat:"sweet",g:"sweet",n:"泡芙",a:[],py:"pf",u:[{k:"one",l:"1 个",x:1}],p:3.5,c:15,f:10,k:165,tags:["egg","dairy","gluten"]},
  {id:"tiramisu",cat:"sweet",g:"sweet",n:"提拉米苏",a:[],py:"tlms",u:[{k:"one",l:"1 块",x:1}],p:5,c:28,f:20,k:310,tags:["egg","dairy","gluten"]},
@@ -468,7 +472,6 @@ const FOODS=[
  {id:"brownie",cat:"sweet",g:"sweet",n:"布朗尼",a:[],py:"bln",u:[{k:"one",l:"1 块",x:1}],p:3,c:30,f:14,k:260,tags:["egg","dairy","gluten"]},
  {id:"mochi",cat:"sweet",g:"sweet",n:"麻薯",a:["大福","糯米糍"],py:"ms",u:[{k:"one",l:"1 个",x:1}],p:1.5,c:25,f:2,k:125,tags:[]},
  {id:"tangyuan",cat:"sweet",g:"sweet",n:"汤圆",a:["元宵"],py:"ty",u:[{k:"four",l:"4 个",x:1}],p:3,c:40,f:10,k:260,tags:[]},
- {id:"popsicle",cat:"sweet",g:"sweet",n:"雪糕",a:["冰棍","冰棒"],py:"xg",u:[{k:"one",l:"1 支",x:1}],p:2,c:20,f:10,k:180,tags:["dairy"]},
  {id:"pudding",cat:"sweet",g:"sweet",n:"布丁",a:["双皮奶"],py:"bd",u:[{k:"one",l:"1 个",x:1}],p:3,c:20,f:5,k:135,tags:["egg","dairy"]}
 ];
 const D={FOODS,GROUPS,TAGS,CATS};
@@ -492,13 +495,13 @@ const hm=m=>z(Math.floor(m/60))+":"+z(m%60);
 const qty=(q,u)=>q===0.5?"半"+u:(q%1?Math.floor(q)+" "+u+"半":q+" "+u);
 
 /* ---------- 食物库：数据在 src/foods.js，这里展开成显示用的表 ----------
-   FOODS 只含基准份量（显示名 = 名称 + 第一个份量）；FBY 另含每个非基准份量的变体，id 为 <基准 id>@<份量 k>。 */
+   FOODS 只含基准份量（显示名 = 名称 + 第一个份量），包括 hide 的条目；FBY 另含每个非基准份量的变体，id 为 <基准 id>@<份量 k>。 */
 const FD=root.OnACutFoods||(typeof require!=="undefined"?require("./foods.js"):null);
 if(!FD||!FD.FOODS) throw new Error("OnACutEngine: 找不到食物库，foods.js 要先于 engine.js 加载");
 const CATS=FD.CATS, FOODS=[], FBY={};
 FD.FOODS.forEach(b=>{
   const f={id:b.id,cat:b.cat,n:b.n+" "+b.u[0].l,p:b.p,c:b.c,f:b.f,g:b.g,tags:b.tags,base:b};
-  if(b.k!=null) f.k=b.k; if(b.top) f.top=b.top;
+  if(b.k!=null) f.k=b.k; if(b.top) f.top=b.top; if(b.hide) f.hide=1;
   FOODS.push(f); FBY[f.id]=f;
   b.u.slice(1).forEach(u=>{
     const v={id:b.id+"@"+u.k,cat:b.cat,n:b.n+" "+u.l,p:r1(b.p*u.x),c:r1(b.c*u.x),f:r1(b.f*u.x),g:b.g,tags:b.tags,baseOf:b.id};
@@ -516,7 +519,7 @@ function guessCat(f){
   if(!(tot>0)) return "carb";
   return P/tot>=0.4?"pro":F/tot>=0.5?"fat":"carb";
 }
-/* 搜索：q 去空格转小写；候选 = 内置基准食物 + opts.my（自定义，只按名称）。返回 [{food, score}] */
+/* 搜索：q 去空格转小写；候选 = 内置基准食物 + opts.my（自定义，只按名称）；内置候选跳过 hide 的条目。返回 [{food, score}] */
 const normQ=s=>String(s==null?"":s).replace(/\s+/g,"").toLowerCase();
 function searchFoods(q,opts){
   q=normQ(q); if(!q) return [];
@@ -532,7 +535,7 @@ function searchFoods(q,opts){
     if(!s) return;
     out.push({food,score:s+Math.min(15,3*(rc[id]||0))+(fav.includes(id)?8:0)+extra,len:name.length});
   };
-  FOODS.forEach(f=>{const b=f.base, name=normQ(b.n); push(f,f.id,name,match(name,b.a.map(normQ),b.py),0)});
+  FOODS.forEach(f=>{if(f.hide) return; const b=f.base, name=normQ(b.n); push(f,f.id,name,match(name,b.a.map(normQ),b.py),0)});
   (opts.my||[]).forEach(f=>{const name=normQ(f.n); push(f,f.id,name,match(name,[],name.replace(/[^a-z]/g,"")),5)});
   out.sort((a,b)=>b.score-a.score||a.len-b.len);
   return out.slice(0,limit).map(x=>({food:x.food,score:x.score}));

@@ -100,3 +100,43 @@ test("engine.FOODS：只含基准份量，形状固定", ()=>{
     assert.deepEqual([f.id,f.cat,f.g,f.p,f.c,f.f,f.k,f.top,f.tags],[b.id,b.cat,b.g,b.p,b.c,b.f,b.k,b.top,b.tags]);
   });
 });
+
+/* ---------- 批次 2A.1：top 名单、甜点分组、hide、法棍份量 ---------- */
+const TOP82={
+  pro:"chicken chleg egg lean beef fish shrimp tofu soymilk milk yog whey",
+  carb:"rice noodle mifen mantou baozi jiaozi porridge corn yam potato oat toast",
+  veg:"veg stirveg broccoli tomato cucumber apple banana orange watermelon grape fruit",
+  fat:"oil nuts peanut guazi walnut zmj pb cheese avo wuhua",
+  sweet:"mtfull mthalf cola juice beer chips choc cake ice popsicle eggtart cookie"};
+test("foods：top 名单（v8.2）", ()=>{
+  for(const c of CATS){
+    const want=TOP82[c[0]].split(" ").sort(), got=FOODS.filter(f=>f.cat===c[0]&&f.top).map(f=>f.id).sort();
+    assert.deepEqual(got,want,c[0]);
+    assert.ok(got.length>=10&&got.length<=12,c[0]+" "+got.length);
+  }
+  const by=Object.fromEntries(FOODS.map(f=>[f.id,f]));
+  for(const id of "bag3 bag2 wwbread flan crois pac tea lmilk soy salmon blueberry xfq butter".split(" ")){
+    assert.ok(by[id],id); assert.equal("top" in by[id],false,id+" 不应有 top");
+  }
+});
+test("foods：甜点分类的 g 只有甜点 / 饮品零食", ()=>{
+  const sw=FOODS.filter(f=>f.cat==="sweet");
+  for(const f of sw) assert.ok(["sweet","snack"].includes(f.g),f.id+" g="+f.g);
+  assert.equal(FOODS.find(f=>f.id==="tea").g,"snack");
+  assert.ok(sw.filter(f=>f.g==="sweet").length>=10); assert.ok(sw.filter(f=>f.g==="snack").length>=10);
+});
+test("foods：hide 标记", ()=>{
+  const hidden=FOODS.filter(f=>"hide" in f);
+  for(const f of hidden){ assert.equal(f.hide,1,f.id); assert.equal("top" in f,false,f.id+" 不能同时有 top") }
+  assert.deepEqual(hidden.map(f=>f.id),["bag2"]);
+  assert.equal(E.FOODS.find(f=>f.id==="bag2").hide,1);
+  assert.deepEqual(E.FOODS.filter(f=>f.hide).map(f=>f.id),["bag2"]);
+});
+test("foods：法棍份量", ()=>{
+  assert.deepEqual(E.portionsOf("bag3").map(f=>f.id),["bag3","bag3@half","bag3@one"]);
+  const h=FBY["bag3@half"], o=FBY["bag3@one"];
+  assert.deepEqual([h.n,h.p,h.c,h.f],["法棍 半根",10.5,67.5,1.5]); assert.equal("k" in h,false);
+  assert.deepEqual([o.n,o.p,o.c,o.f],["法棍 1 根",21,135,3]); assert.equal("k" in o,false);
+  assert.deepEqual([FBY.bag2.n,FBY.bag2.p,FBY.bag2.c,FBY.bag2.f],["法棍 半根",11,70,1.5]);
+  assert.deepEqual(E.portionsOf("bag2").map(f=>f.id),["bag2"]);
+});
