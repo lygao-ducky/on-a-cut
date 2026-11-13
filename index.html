@@ -665,9 +665,54 @@ function advise(i){
   return done();
 }
 
+/* ---------- 超出摊平（v8.1）----------
+   某天有记录且已吃 − 调整后上限 ≥ 30 kcal：整个差值记一笔欠账，从第二天起最多还 5 天（按日历天，空白日照扣），过期作废。
+   单日扣减 ≤ cutCap；多笔欠账旧账先还；只降热量和碳水；吃少了不产生额度。结果全部实时推算，不落盘。 */
+const floorOf=sex=>sex==="m"?1500:1200;
+function cutCap(t,floor){
+  const v=Math.floor(Math.min(150,mid(t.k)*0.1,t.k[0]-floor,4*(t.c[0]-50)));
+  return v>0?v:0;
+}
+function shiftT(t,cut){
+  const dc=Math.round(cut/4);
+  return {p:t.p.slice(),pf:t.pf,c:[t.c[0]-dc,t.c[1]-dc],f:t.f.slice(),k:[t.k[0]-cut,t.k[1]-cut]};
+}
+/* days = S.days；baseOf(date) → 这一天的原始目标；opts = {floor, to, over?:{date,k}}。
+   返回 {days:{date:{cut, from:[{d,k}], t}}（只含 cut>0 的日期）, src:{超出日:{over, paid:[{d,k}], lost, left}}} */
+function carryOver(days,baseOf,opts){
+  days=days||{}; opts=opts||{};
+  const floor=opts.floor, to=opts.to, ov=opts.over||null, out={days:{},src:{}};
+  let start=null;
+  Object.keys(days).forEach(d=>{const x=days[d]; if(x&&x.entries&&x.entries.length&&(start===null||d<start)) start=d});
+  if(ov&&ov.date&&(start===null||ov.date<start)) start=ov.date;
+  if(start===null||!to) return out;
+  let debts=[];
+  for(let date=start;date<=to;date=addDays(date,1)){
+    // a. 过期的欠账作废
+    debts=debts.filter(b=>{ if(b.exp<date){out.src[b.d].lost+=b.left;return false} return true });
+    // b. 按超出日先后偿还，单日合计 ≤ cap
+    const t0=baseOf(date), cap=cutCap(t0,floor), from=[];
+    let cut=0;
+    debts.forEach(b=>{ const k=Math.min(b.left,cap-cut); if(k>0){b.left-=k;cut+=k;from.push({d:b.d,k});out.src[b.d].paid.push({d:date,k})} });
+    debts=debts.filter(b=>b.left>0);
+    // c. 调整后的目标
+    const t=shiftT(t0,cut);
+    if(cut>0) out.days[date]={cut,from,t};
+    // d. 这一天是否超出
+    let eaten=null;
+    if(ov&&ov.date===date) eaten=ov.k;
+    else{const x=days[date]; if(x&&x.entries&&x.entries.length) eaten=totals(x).k}
+    if(eaten==null) continue;
+    const over=Math.round(eaten-t.k[1]);
+    if(over>=30){ debts.push({d:date,left:over,exp:addDays(date,5)}); out.src[date]={over,paid:[],lost:0,left:0} }
+  }
+  debts.forEach(b=>{out.src[b.d].left+=b.left});
+  return out;
+}
+
 const E={r0,r1,half,mid,z,ymd,parseD,addDays,diffDays,kcalOf,clone,FOODS,FBY,CATS,MEALS,MODES,ACT,
   compute,pfError,planFor,totals,mealNote,qty,hm,mins,buildTpl,dayOk,advise,
-  baseId,portionsOf,guessCat,searchFoods,recentFoods};
+  baseId,portionsOf,guessCat,searchFoods,recentFoods,floorOf,cutCap,shiftT,carryOver};
 if(typeof module!=="undefined"&&module.exports) module.exports=E; else root.OnACutEngine=E;
 })(typeof self!=="undefined"?self:this);
 </script>
@@ -688,7 +733,7 @@ const CAT_IDS=CATS.map(c=>c[0]), catName=id=>(CATS.find(c=>c[0]===id)||["",""])[
 
 /* ---------- state + storage ---------- */
 const LS="onacut.v1";
-function defaults(){return {v:2,updatedAt:0,start:today(),weight0:0,plan:planFor(4),my:[],fav:[],combos:[],fast:true,states:null,profile:null,
+function defaults(){return {v:2,updatedAt:0,start:today(),weight0:0,plan:planFor(4),my:[],fav:[],combos:[],spread:true,fast:true,states:null,profile:null,
   win:{A:["11:30","19:30"],B:["09:30","19:30"],C:["11:30","19:30"]},
   t:{train:{p:[100,110],pf:85,c:[165,180],f:[42,48],k:[1500,1600]},rest:{p:[100,110],pf:85,c:[125,140],f:[42,48],k:[1350,1450]}}}}
 let S={settings:defaults(),days:{}};
@@ -701,6 +746,7 @@ function migrate(){const s=S.settings;
   // v8：旧“常吃”并入我的食物库。没有合法分类的项按营养猜分类，并保持收藏；迁移过的项不会再处理
   s.my.forEach(f=>{ if(!CAT_IDS.includes(f.cat)){ f.cat=E.guessCat(f); f.s=f.cat==="sweet"?1:0; s.fav.push(f.id) } });
   s.fav=s.fav.filter((id,i)=>s.fav.indexOf(id)===i);
+  if(typeof s.spread!=="boolean") s.spread=true;
 }
 function adopt(o){S.settings=Object.assign(defaults(),o.settings);S.days=o.days||{};migrate()}
 try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);if(o&&o.settings)adopt(o)}}catch(e){}
@@ -767,6 +813,20 @@ const stOf=day=>normState(day.state);
 const blankDay=d=>({state:normState(S.settings.plan[parseD(d).getDay()]),entries:[],water:0});
 function mut(d,fn){ if(!S.days[d]) S.days[d]=blankDay(d); fn(S.days[d]); touch(d) }
 const targets=st=>S.settings.t[st==="C"?"rest":"train"];
+/* 超出摊平（v8.1）：LED 每次 render() 重算；tgtOf 是今天页 / 餐单 / 对冲 / 日历取目标的统一入口 */
+const floorNow=()=>E.floorOf(S.settings.profile&&S.settings.profile.sex);
+let LED=null;
+const ledTo=()=>{const a=addDays(today(),7), b=addDays(cur,6); return a>b?a:b};
+const ledOpts=over=>({floor:floorNow(),to:ledTo(),over});
+function calcLED(){ LED=S.settings.spread?E.carryOver(S.days,d=>targets(stOf(dayOf(d))),ledOpts()):null }
+const tgtOf=date=>LED&&LED.days[date]?LED.days[date].t:targets(stOf(dayOf(date)));
+const cutOf=date=>LED&&LED.days[date]||null;
+/* 预演：假设 date 这一天已吃 k kcal，返回这一天的欠账 {over, paid, lost, left}，没有欠账为 null */
+function spreadOf(date,k){ if(!S.settings.spread) return null; return E.carryOver(S.days,d=>targets(stOf(dayOf(d))),ledOpts({date,k})).src[date]||null }
+const md=d=>+d.slice(5,7)+"/"+(+d.slice(8,10));
+function spreadText(s){const n=s.paid.length; if(!n) return "之后几天已到安全下限，不再追";
+  const ks=s.paid.map(x=>x.k), same=ks.every(k=>k===ks[0]);
+  return (same?`接下来 ${n} 天每天少 ${ks[0]} kcal`:`接下来 ${n} 天共少 ${ks.reduce((a,b)=>a+b,0)} kcal（每天 ${ks.join(" / ")}）`)+(s.lost>0?`，另有 ${s.lost} kcal 摊不完，不再追`:"")}
 const dur=m=>{m=Math.max(0,Math.round(m));return (m>=60?Math.floor(m/60)+" 小时 ":"")+(m%60)+" 分"};
 function winStatus(st,date){
   if(!S.settings.fast) return {off:true};
@@ -780,7 +840,7 @@ function winStatus(st,date){
 function mealTimes(st){const s=S.settings; let a=480,b=1140; if(s.fast){a=mins(s.win[st][0]);b=mins(s.win[st][1])-30}
   const rd=m=>Math.round(m/30)*30, m2=rd(a+(b-a)*0.45), sn=rd((m2+b)/2); return [a,m2,sn,b]}
 /* 参考餐单：按当天目标自动配出掌、拳、茶匙的份数 */
-const tplOf=st=>buildTpl(targets(st),mealTimes(st),st!=="C");
+const tplOf=date=>{const st=stOf(dayOf(date));return buildTpl(tgtOf(date),mealTimes(st),st!=="C")};
 /* 今天还剩几顿正餐没吃（其他日期不分餐，传 99） */
 function mealsLeft(day,date){ if(date!==today()) return 99;
   const tm=mealTimes(stOf(day)),n=new Date(),now=n.getHours()*60+n.getMinutes(), from=now>=tm[3]-45?3:now>=tm[1]-45?2:1;
@@ -822,6 +882,12 @@ function adviceTiles(a){
     <div class="tile"><span class="k">蛋白</span><span class="v">${pro[0]}<small>${pro[1]}</small></span><span class="s">${pro[2]}</span></div>
     <div class="tile${fat[0]?"":" zero"}"><span class="k">油脂</span><span class="v">${fat[0]}<small>${fat[1]}</small></span><span class="s">${fat[2]}</span></div></div>`;
 }
+/* 超出说明：按已记录的热量预演摊平（记入后之后几天实际扣的就是这个数）；还没超、但照建议吃完会超时给预计值 */
+function overNote(date,T,t,a){const s=spreadOf(date,T.k);
+  if(s) return `；超出 <b>${s.over} kcal</b>，${spreadText(s)}`;
+  if(a.overK<=0) return "";
+  const k=r0(a.overK); if(!S.settings.spread) return `；超出 ${k} kcal`;
+  return k<30?`；超出 ${k} kcal，不到 30 kcal 不用管`:`；吃完预计超出 ${k} kcal，记下后会自动摊到之后几天`}
 function adviceCard(day,date,T,t,ws){
   if(!day.entries.length) return `<div class="hint">${date>today()?"提前排好这一天：":"还没记录。"}照下面的参考餐单填入，再换成你实际吃的。</div>`;
   const isT=date===today(), ml=mealsLeft(day,date), a=advise({T,t,mealsLeft:ml,windowClosed:!!ws.closed,kOnly:kOnly(day)}), has=f=>a.flags.includes(f);
@@ -829,15 +895,15 @@ function adviceCard(day,date,T,t,ws){
   if(has("closed")) return `<div class="hint">已关窗，今天到此为止，喝水或无糖茶。</div>`;
   const none=!a.palms&&!a.fists&&!a.nuts&&!a.oilTsp, over=has("overBudget"), notes=[];
   if(has("proteinOver")) notes.push(`蛋白已超 <b>${r0(a.overP)}g</b>，不影响减脂${none||over?"。":"；这一餐不用再吃肉，把额度留给主食和油。"}`);
-  if(over) notes.push(`热量已用完，${a.palms?"补完蛋白后":"接下来"}只吃蔬菜${a.spreadDays?`；超出 <b>${r0(a.overK)} kcal</b>，之后 ${a.spreadDays} 天每天少半拳主食`:""}。`);
+  if(over) notes.push(`热量已用完，${a.palms?"补完蛋白后":"接下来"}只吃蔬菜${overNote(date,T,t,a)}。`);
   if(has("fatFloorShort")) notes.push("今天脂肪会略低于下限，偶尔一天没关系。");
   if(has("kOnly")) notes.push("部分食物只记了热量，建议仅供参考。");
   const per=isT&&a.perMeal&&!none?` <span class="muted small" style="font-weight:500">· 还有 ${ml} 餐，${ml===2?"每餐约一半":"分 "+ml+" 餐吃"}</span>`:"";
   const body=none?(over?"":`<div class="hint">${isT?"今天":"这一天"}已经吃到位了 ✓</div>`):`<h3>${isT?"下一餐怎么吃":"这一天还缺"}${per}</h3>${adviceTiles(a)}`;
   return body+(notes.length?`<div class="hint${over?" warn":""}">${notes.slice(0,2).join("<br>")}</div>`:"");
 }
-function tplCard(day){
-  const st=stOf(day), tpl=tplOf(st), T={p:0,c:0,f:0};
+function tplCard(day,date){
+  const st=stOf(day), tpl=tplOf(date), T={p:0,c:0,f:0};
   const rows=tpl.map(m=>{let mp=0; m[3].forEach(it=>{const f=FBY[it[0]];T.p+=f.p*it[1];T.c+=f.c*it[1];T.f+=f.f*it[1];mp+=f.p*it[1]});
     return `<div class="m"><span class="t">${m[0]}</span><span class="w"><b>${m[2]}</b><span>${m[3].map(it=>it[2]).join(" · ")}</span></span><span class="pp">蛋白 ${r0(mp)}</span></div>`}).join("");
   const body=`<div class="tl">${rows}</div>
@@ -897,7 +963,7 @@ function capMy(){const s=S.settings; while(s.my.length>300){let i=s.my.length-1;
   const x=s.my.splice(i,1)[0]; s.fav=s.fav.filter(id=>id!==x.id)}}
 function openManual(){cu.open=true;cu.n=cu.q.trim().slice(0,40);cu.err="";render()}
 function viewToday(){
-  const day=dayOf(cur), st=stOf(day), t=targets(st), T=totals(day), ws=winStatus(st,cur);
+  const day=dayOf(cur), st=stOf(day), t=tgtOf(cur), T=totals(day), ws=winStatus(st,cur), cut=cutOf(cur);
   const dn=diffDays(cur,S.settings.start)+1, left=mid(t.k)-T.k;
   const segs=S.settings.states.map(k=>{const i=stInfo(k);return `<button data-act="state" data-v="${k}" aria-pressed="${st===k}"><b>${i.t}</b><span>${i.s}</span></button>`}).join("");
   const mealTabs=[1,2,3,4].map(i=>`<button data-act="meal" data-v="${i}" aria-pressed="${meal===i}">${MEALS[i]}</button>`).join("");
@@ -925,12 +991,13 @@ function viewToday(){
   <section class="panel">
    <div class="hero"><div><span class="k">${left>=0?"还可以吃":"已超出"}</span><div class="big${left<-50?" neg":""}">${r0(Math.abs(left))}<small>kcal</small></div></div>
     <div class="r">已吃 ${r0(T.k)}<br>目标 ${t.k[0]}–${t.k[1]}${ws.off?"":`<br><span id="winpill" class="pill ${ws.cls}">${ws.txt}</span>`}</div></div>
+   ${cut?`<div class="hint small">${cur===today()?"今天":cur>today()?"预计这一天":"这一天"}少 <b>${cut.cut} kcal</b>（碳水 −${Math.round(cut.cut/4)}g），在摊还 ${cut.from.map(x=>md(x.d)).join("、")} 超出的部分</div>`:""}
    ${gauge("蛋白质",T.p,t.p[0],t.p[1],"pro","g",t.pf,ws.closed?2:1)}
    ${gauge("碳水",T.c,t.c[0],t.c[1],"carb","g")}
    ${gauge("脂肪",T.f,t.f[0],t.f[1],"fat","g")}
    ${adviceCard(day,cur,T,t,ws)}
   </section>
-  ${tplCard(day)}
+  ${tplCard(day,cur)}
   <section class="panel">
    <div class="sec-title"><h2>记一口</h2><span class="muted small">点一下 = 1 份</span></div>
    <div class="tabs" role="group" aria-label="记到哪一餐">${mealTabs}</div>
@@ -959,8 +1026,13 @@ ${catHTML()}</div>
 }
 
 /* ---------- hedge ---------- */
+/* 结论 pill：T 已含预演的甜点，按它预演摊平，和点“吃了，记入”后之后几天实际扣的一致 */
+function hzPill(T,a){const s=spreadOf(cur,T.k), k=r0(a.overK), on=S.settings.spread;
+  if(s) return `<span class="pill warn">仍超 ${s.over} kcal → ${spreadText(s)}</span>`;
+  if(a.overK>0) return !on?`<span class="pill warn">仍超 ${k} kcal</span>`:k<30?`<span class="pill">略超 ${k} kcal，不用管</span>`:`<span class="pill warn">吃完预计超 ${k} kcal → 记下后自动摊到之后几天</span>`;
+  return `<span class="pill good">吃完全天仍在额度内</span>`}
 function viewHedge(){
-  const day=dayOf(cur), sel=hz.id?findFood(hz.id):null, t=targets(stOf(day)), T=totals(day);
+  const day=dayOf(cur), sel=hz.id?findFood(hz.id):null, t=tgtOf(cur), T=totals(day);
   if(sel){T.p+=sel.p*hz.q;T.c+=sel.c*hz.q;T.f+=sel.f*hz.q;T.k+=kcalOf(sel)*hz.q}
   const show=sel||day.entries.some(e=>e.s);
   const opts=FOODS.filter(f=>f.cat==="sweet").concat(S.settings.my.filter(f=>f.cat==="sweet"));
@@ -969,7 +1041,7 @@ function viewHedge(){
   if(show){const a=advise({T,t,mealsLeft:1,windowClosed:false,kOnly:kOnly(day)||(!!sel&&kOnlyE(sel))});
     const bud=(v,u,l)=>`<div><b class="${v<0?"neg":""}">${v<0?"超 ":""}${r0(Math.abs(v))}</b><span>${l}${v<0?"":"还剩"} ${u}</span></div>`;
     res=`${adviceTiles(a)}
-     <div class="verdict">${a.spreadDays?`<span class="pill warn">仍超 ${r0(a.overK)} kcal → 接下来 ${a.spreadDays} 天每天少半拳主食</span>`:`<span class="pill good">吃完全天仍在额度内</span>`}
+     <div class="verdict">${hzPill(T,a)}
       ${a.flags.includes("kOnly")?'<span class="pill warn">部分食物只记了热量，仅供参考</span>':""}<span class="pill">蔬菜两捧</span><span class="pill">不加练，明早照常</span></div>
      <div class="stats">${bud(t.c[1]-T.c,"g","碳水")}${bud(t.f[1]-T.f,"g","脂肪")}${bud(a.budget,"kcal","热量")}</div>`}
   return `
@@ -1035,7 +1107,7 @@ function viewLog(){
   const wkT=logged.map(x=>totals(x)), avg=k=>wkT.length?r0(wkT.reduce((a,t)=>a+t[k],0)/wkT.length):"–";
   const hit=logged.filter(x=>totals(x).p>=targets(stOf(x)).p[0]).length;
   const cal=Array.from({length:30},(_,i)=>{const d=addDays(today(),i-29),x=S.days[d];let c="";
-    if(x&&x.entries&&x.entries.length)c=dayOk(totals(x),targets(stOf(x)))?"ok":"half"
+    if(x&&x.entries&&x.entries.length)c=dayOk(totals(x),tgtOf(d))?"ok":"half"
     return `<i class="${c}${d===today()?" now":""}" title="${d}">${parseD(d).getDate()}</i>`}).join("");
   return `
   <header class="top"><div class="date"><div class="d1">训练与体重</div><div class="d2">${dayLabel()} 周${WD[parseD(cur).getDay()]} · ${stInfo(stOf(day)).t}</div></div>${dayNav()}${profBtn()}</header>
@@ -1100,7 +1172,7 @@ function viewGuide(){
    <details><summary>甜点对冲规则</summary><ul>
     <li>甜点优先放在<b>训练日练后</b>那一餐，糖原最空。</li>
     <li>先保蛋白底线，再从主食和烹调油里腾额度；额度用完当晚主食归零。</li>
-    <li>仍超出的部分用 2–5 天各少半拳主食摊平，不加练、不饿肚子。</li>
+    <li>仍超出 30 kcal 以上的部分，之后最多 5 天自动下调热量和碳水目标来摊平（每天最多 150 kcal）；不加练、不饿肚子。</li>
     <li>每周主动安排 1–2 次甜点，比忍到失控再补偿更稳。</li></ul></details>
    <details><summary>训练要点</summary><ul>
     <li>先力量后有氧。力量训练决定保不保得住肌肉，放在体力最好的时候。</li>
@@ -1119,7 +1191,8 @@ function viewGuide(){
     <li>连续 2 周持平且记录完整：每天少半拳主食，或日均多走 2000 步。二选一。</li>
     <li>体重变化满 1 kg：到身体档案更新体重，目标会重新计算。</li>
     <li>连续几天睡不好、训练没劲、总想吃甜：先连续 2 天吃到维持热量，再回到计划。</li>
-    <li>经期前后体重上浮 0.5–1.5 kg 属正常水分波动，看均线不看单日。</li></ul>
+    <li>经期前后体重上浮 0.5–1.5 kg 属正常水分波动，看均线不看单日。</li>
+    <li>某天超出上限 30 kcal 以上，之后最多 5 天的热量和碳水目标会自动下调，每天最多 150 kcal、只减主食，摊不完的作废；吃少了不会累积成额度。可在设置里关闭。</li></ul>
     <p class="muted small">热量目标按 Mifflin-St Jeor 公式估算，属一般性健康建议，不能替代医疗意见。孕期、哺乳期、有基础疾病或进食障碍史，请先咨询医生或注册营养师。</p></details>
   </section>
   <section class="panel"><h2>交给 AI</h2>
@@ -1136,7 +1209,7 @@ function openSheet(kind,arg){const s=S.settings; step=0; armed=false; armedU=fal
   if(kind==="combo"){const c=s.combos.find(x=>x.id===arg); if(!c) return; cdr=clone(c)}
   else if(kind==="foods"){fq="";fe=null}
   sheet=kind;
-  if(kind==="onb"||kind==="prof") dr=clone({pf:s.profile||{sex:"",age:"",h:"",w:"",goal:"",n:3,mode:"cut1",custom:false,done:false},fast:!!s.fast,win:s.win,plan:s.plan,t:s.t,fsel:"none"});
+  if(kind==="onb"||kind==="prof") dr=clone({pf:s.profile||{sex:"",age:"",h:"",w:"",goal:"",n:3,mode:"cut1",custom:false,done:false},fast:!!s.fast,win:s.win,plan:s.plan,t:s.t,fsel:"none",spread:s.spread!==false});
   if(kind==="onb") dr.plan=planFor(+dr.pf.n);
   document.body.classList.add("lock"); renderSheet()}
 function closeSheet(){const k=sheet;sheet=null;dr=null;cdr=null;fe=null;document.body.classList.remove("lock");const el=document.getElementById("sheet");el.hidden=true;el.innerHTML="";
@@ -1221,7 +1294,9 @@ function renderSheet(){
      <section class="panel"><h2>身体数据</h2>${bodyFields()}${weightFields()}</section>
      <section class="panel"><h2>目标</h2>${modeFields()}${trainFields()}<div id="dr-prev">${prevHTML()}</div>
       <label class="check"><input type="checkbox" id="dr-custom" data-drc="pf.custom" ${pf.custom?"checked":""}> 手动设置目标（不再自动计算）</label>
-      ${pf.custom?trow("train","训练日")+trow("rest","休息日"):""}</section>
+      ${pf.custom?trow("train","训练日")+trow("rest","休息日"):""}
+      <label class="check"><input type="checkbox" id="dr-spread" ${dr.spread?"checked":""}> 超出热量自动摊平到之后几天</label>
+      <div class="small muted">超出上限 30 kcal 以上时，之后最多 5 天每天少吃一点，只减主食，每天最多 150 kcal。</div></section>
      <section class="panel"><h2>进食时间</h2><div class="seg slim">${segBtn("fast","false","不限时",dr.fast)}${segBtn("fast","true","限时进食",dr.fast)}</div>
       ${dr.fast?sts.map(winRow).join(""):""}</section>
      <section class="panel"><h2>每周默认安排</h2><div class="grid4">${planSel}</div></section>
@@ -1241,7 +1316,7 @@ function renderSheet(){
 }
 function applyDraft(first){
   const s=S.settings, pf=dr.pf; ["age","h","w","goal","n"].forEach(k=>{pf[k]=pf[k]===""||pf[k]==null?"":+pf[k]}); pf.done=true;
-  s.profile=pf; s.plan=dr.plan; s.fast=dr.fast; s.win=dr.win;
+  s.profile=pf; s.plan=dr.plan; s.fast=dr.fast; s.win=dr.win; s.spread=dr.spread!==false;
   s.t=pf.custom?dr.t:(r=>({train:r.train,rest:r.rest}))(compute(pf));
   if(first){s.start=today();s.weight0=pf.w;s.states=["A","C"]}
   if(!s.weight0) s.weight0=pf.w;
@@ -1254,6 +1329,7 @@ const NAV=[["today","今天",'<path d="M4 11h16M6 11a6 6 0 0 0 12 0M12 5v2M8 4.5
  ["log","记录",'<path d="M3 12h2m14 0h2M6 8v8M18 8v8M9 6v12M15 6v12M9 12h6"/>'],
  ["guide","准则",'<path d="M6 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V4zM6 16h12M9.5 8h5M9.5 11.5h5"/>']];
 function render(){
+  calcLED();
   document.getElementById("app").innerHTML=tab==="today"?viewToday():tab==="hedge"?viewHedge():tab==="log"?viewLog():viewGuide();
   if(tab==="today"){ const fi=document.getElementById(qEdit!=null?"q-in":tEdit!=null?"mt-in":"-"); if(fi){fi.focus(); if(fi.id==="q-in") fi.select()} }
   document.getElementById("nav").innerHTML=NAV.map(n=>`<button data-tab="${n[0]}" ${tab===n[0]?'aria-current="page"':""}><svg viewBox="0 0 24 24" aria-hidden="true">${n[2]}</svg>${n[1]}</button>`).join("");
@@ -1395,7 +1471,7 @@ document.addEventListener("click",ev=>{
     const step=()=>mut(cur,d=>{const e=d.entries.find(x=>x.id===v);e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)});
     if(a==="dec"&&r1(e0.q-0.5)<=0) withUndo(cur,"已删除 "+e0.n,step); else step()}
   else if(a==="clear"){ if(dayOf(cur).entries.length) withUndo(cur,"已清空"+dayLabel()+"的记录",()=>mut(cur,d=>{d.entries=[]})) }
-  else if(a==="tpl"){withUndo(cur,"已填入，按实际增减",()=>tplOf(stOf(dayOf(cur))).forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1]))))}
+  else if(a==="tpl"){withUndo(cur,"已填入，按实际增减",()=>tplOf(cur).forEach(m=>m[3].forEach(it=>addFood(FBY[it[0]],it[1],m[1]))))}
   else if(a==="copyy"){const yd=S.days[addDays(cur,-1)]; if(yd) withUndo(cur,"已复制前一天的记录",()=>mut(cur,d=>{d.entries=yd.entries.map(e=>{const x=Object.assign({},e,{id:uid()});delete x.t;return x})}))}
   else if(a==="est"){estimate();return}
   else if(a==="cuopen"){openManual();return}
@@ -1446,6 +1522,7 @@ document.addEventListener("change",ev=>{
   if(el.id==="cu-fav"){cu.fav=el.checked;return}
   if(el.id==="mt-in"){ if(tEdit==null) return; const m=tEdit, ok=/^\d\d:\d\d/.test(el.value), t=ok?mins(el.value.slice(0,5)):null;
     if(dayOf(cur).entries.some(e=>e.m===m)) mut(cur,d=>{d.entries.forEach(e=>{ if(e.m===m){ if(ok) e.t=t; else delete e.t } })}); return}
+  if(el.id==="dr-spread"&&dr){dr.spread=el.checked;return}
   if(el.dataset.drc&&dr){dr.pf.custom=el.checked; if(el.checked&&!pfError(dr.pf)){const r=compute(dr.pf);dr.t={train:r.train,rest:r.rest}} renderSheet();return}
   if(el.id==="bkfile"&&el.files&&el.files[0]){const fr=new FileReader();fr.onload=()=>{const io=document.getElementById("io");if(io){io.value=String(fr.result||"");armed=false;toast("已读取文件，点“恢复数据”")}};fr.readAsText(el.files[0]);return}
   if(el.dataset.chg){const k=el.dataset.chg;

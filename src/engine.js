@@ -180,8 +180,53 @@ function advise(i){
   return done();
 }
 
+/* ---------- 超出摊平（v8.1）----------
+   某天有记录且已吃 − 调整后上限 ≥ 30 kcal：整个差值记一笔欠账，从第二天起最多还 5 天（按日历天，空白日照扣），过期作废。
+   单日扣减 ≤ cutCap；多笔欠账旧账先还；只降热量和碳水；吃少了不产生额度。结果全部实时推算，不落盘。 */
+const floorOf=sex=>sex==="m"?1500:1200;
+function cutCap(t,floor){
+  const v=Math.floor(Math.min(150,mid(t.k)*0.1,t.k[0]-floor,4*(t.c[0]-50)));
+  return v>0?v:0;
+}
+function shiftT(t,cut){
+  const dc=Math.round(cut/4);
+  return {p:t.p.slice(),pf:t.pf,c:[t.c[0]-dc,t.c[1]-dc],f:t.f.slice(),k:[t.k[0]-cut,t.k[1]-cut]};
+}
+/* days = S.days；baseOf(date) → 这一天的原始目标；opts = {floor, to, over?:{date,k}}。
+   返回 {days:{date:{cut, from:[{d,k}], t}}（只含 cut>0 的日期）, src:{超出日:{over, paid:[{d,k}], lost, left}}} */
+function carryOver(days,baseOf,opts){
+  days=days||{}; opts=opts||{};
+  const floor=opts.floor, to=opts.to, ov=opts.over||null, out={days:{},src:{}};
+  let start=null;
+  Object.keys(days).forEach(d=>{const x=days[d]; if(x&&x.entries&&x.entries.length&&(start===null||d<start)) start=d});
+  if(ov&&ov.date&&(start===null||ov.date<start)) start=ov.date;
+  if(start===null||!to) return out;
+  let debts=[];
+  for(let date=start;date<=to;date=addDays(date,1)){
+    // a. 过期的欠账作废
+    debts=debts.filter(b=>{ if(b.exp<date){out.src[b.d].lost+=b.left;return false} return true });
+    // b. 按超出日先后偿还，单日合计 ≤ cap
+    const t0=baseOf(date), cap=cutCap(t0,floor), from=[];
+    let cut=0;
+    debts.forEach(b=>{ const k=Math.min(b.left,cap-cut); if(k>0){b.left-=k;cut+=k;from.push({d:b.d,k});out.src[b.d].paid.push({d:date,k})} });
+    debts=debts.filter(b=>b.left>0);
+    // c. 调整后的目标
+    const t=shiftT(t0,cut);
+    if(cut>0) out.days[date]={cut,from,t};
+    // d. 这一天是否超出
+    let eaten=null;
+    if(ov&&ov.date===date) eaten=ov.k;
+    else{const x=days[date]; if(x&&x.entries&&x.entries.length) eaten=totals(x).k}
+    if(eaten==null) continue;
+    const over=Math.round(eaten-t.k[1]);
+    if(over>=30){ debts.push({d:date,left:over,exp:addDays(date,5)}); out.src[date]={over,paid:[],lost:0,left:0} }
+  }
+  debts.forEach(b=>{out.src[b.d].left+=b.left});
+  return out;
+}
+
 const E={r0,r1,half,mid,z,ymd,parseD,addDays,diffDays,kcalOf,clone,FOODS,FBY,CATS,MEALS,MODES,ACT,
   compute,pfError,planFor,totals,mealNote,qty,hm,mins,buildTpl,dayOk,advise,
-  baseId,portionsOf,guessCat,searchFoods,recentFoods};
+  baseId,portionsOf,guessCat,searchFoods,recentFoods,floorOf,cutCap,shiftT,carryOver};
 if(typeof module!=="undefined"&&module.exports) module.exports=E; else root.OnACutEngine=E;
 })(typeof self!=="undefined"?self:this);

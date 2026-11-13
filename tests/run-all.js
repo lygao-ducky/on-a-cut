@@ -3,3 +3,4 @@
 // 文件名故意不带 .test.，这样会扫描目录的新版 Node 不会把每个用例跑两遍。新增测试文件要在这里登记。
 require("./engine.test.js");
 require("./foods.test.js");
+require("./carry.test.js");
