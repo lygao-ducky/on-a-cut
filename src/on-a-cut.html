@@ -832,7 +832,7 @@ function renderSheet(){
   } else if(sheet==="onb"){ const pf=dr.pf; label="首次设置";
     const steps=["先认识一下你","体重和目标","生活节奏","你的每日目标"];
     title=`<div class="grow"><div class="dots">${steps.map((_,i)=>`<i class="${i<=step?"on":""}"></i>`).join("")}</div><h2 style="font-size:20px;margin-top:10px">${steps[step]}</h2></div>`;
-    if(step===0) body=`<p class="muted" style="margin:0">填 4 项数据，约 1 分钟。数据只保存在你自己的设备上。</p>${bodyFields()}`;
+    if(step===0) body=`<p class="muted" style="margin:0">填 4 项数据，约 1 分钟。数据只保存在你自己的设备上。</p>${window.__onacutHomeNew?`<div class="hint">如果之前在 Safari 里用过：先在 Safari 打开本页，点右上角人像 → 导出备份；回到这里完成设置后，再点右上角人像 → 恢复数据，刚填的设置会被备份覆盖。</div>`:""}${bodyFields()}`;
     else if(step===1) body=weightFields()+modeFields();
     else if(step===2) body=trainFields()+`<div><div class="lab">进食时间</div><div class="modes">
        <button class="mode" data-act="drset" data-k="fsel" data-v="none" aria-pressed="${dr.fsel==="none"}"><b>不限时</b><span>正常三餐</span></button>

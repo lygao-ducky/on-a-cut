@@ -1,0 +1,1 @@
+{ "private": true, "scripts": { "smoke": "node smoke.js" }, "devDependencies": { "playwright": "^1.48.0" } }

@@ -4,12 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="On a Cut">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0C6A5B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>try{ window.__onacutHomeNew = navigator.standalone===true && localStorage.getItem("onacut.v1")===null }catch(e){ window.__onacutHomeNew=false }</script>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<style>
+#upd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;align-items:center;border-radius:99px;background:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px rgba(0,0,0,.28);max-width:calc(100vw - 32px);white-space:nowrap}
+#upd button{border:0;background:transparent;color:inherit;font-family:inherit;cursor:pointer}
+#upd-go{min-height:40px;padding:0 4px 0 18px;font-weight:600;font-size:14px}
+#upd-x{min-width:40px;min-height:40px;padding:0;font-size:14px;border-radius:99px}
+html.upd-on #toast{bottom:calc(124px + env(safe-area-inset-bottom,0px))}
+html.upd-on body{padding-bottom:calc(136px + env(safe-area-inset-bottom,0px))}
+</style>
 </head>
 <body>
 <title>On a Cut 刷脂助手</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
 <style>
 /* Layout: phone-first single column, fixed bottom tab bar; macro gauges drawn as measuring tapes with a target band. */
 :root{
@@ -1281,7 +1296,7 @@ function renderSheet(){
   } else if(sheet==="onb"){ const pf=dr.pf; label="首次设置";
     const steps=["先认识一下你","体重和目标","生活节奏","你的每日目标"];
     title=`<div class="grow"><div class="dots">${steps.map((_,i)=>`<i class="${i<=step?"on":""}"></i>`).join("")}</div><h2 style="font-size:20px;margin-top:10px">${steps[step]}</h2></div>`;
-    if(step===0) body=`<p class="muted" style="margin:0">填 4 项数据，约 1 分钟。数据只保存在你自己的设备上。</p>${bodyFields()}`;
+    if(step===0) body=`<p class="muted" style="margin:0">填 4 项数据，约 1 分钟。数据只保存在你自己的设备上。</p>${window.__onacutHomeNew?`<div class="hint">如果之前在 Safari 里用过：先在 Safari 打开本页，点右上角人像 → 导出备份；回到这里完成设置后，再点右上角人像 → 恢复数据，刚填的设置会被备份覆盖。</div>`:""}${bodyFields()}`;
     else if(step===1) body=weightFields()+modeFields();
     else if(step===2) body=trainFields()+`<div><div class="lab">进食时间</div><div class="modes">
        <button class="mode" data-act="drset" data-k="fsel" data-v="none" aria-pressed="${dr.fsel==="none"}"><b>不限时</b><span>正常三餐</span></button>
@@ -1554,6 +1569,37 @@ meal=autoMeal();
 render();
 if(!onboarded()) openSheet("onb");
 initCloud();
+})();
+</script>
+<div id="upd" role="status" hidden><button id="upd-go" type="button">有新版本，点此刷新</button><button id="upd-x" type="button" aria-label="关闭更新提示">✕</button></div>
+<script>
+/* 离线缓存的注册与更新提示。只在 GitHub Pages 版（index.html）里有；任何情况下都不自动刷新页面，用户点了横条才刷新。 */
+(function(){
+  if(!("serviceWorker" in navigator) || window.claude || location.protocol==="file:") return;
+  var sw=navigator.serviceWorker, root=document.documentElement;
+  var bar=document.getElementById("upd"), sheet=document.getElementById("sheet");
+  var reg=null, pending=false, dismissed=false, refreshing=false, reloaded=false;
+  /* 显示条件：有新版本在等 + 这次打开没点过 ✕ + 抽屉没开（抽屉里的草稿只在内存里，刷新会丢） */
+  function show(){ var on=pending && !dismissed && (!sheet || sheet.hidden); bar.hidden=!on; root.classList.toggle("upd-on",on) }
+  function mark(){ if(sw.controller){ pending=true; show() } }   // 第一次安装（没有 controller）不提示
+  function watch(w){ if(w) w.addEventListener("statechange",function(){ if(w.state==="installed") mark() }) }
+  function check(){ if(reg) reg.update().catch(function(){}) }
+  if(sheet) new MutationObserver(show).observe(sheet,{attributes:true,attributeFilter:["hidden"]});
+  document.getElementById("upd-x").addEventListener("click",function(){ dismissed=true; show() });
+  document.getElementById("upd-go").addEventListener("click",function(){
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();   // 触发页面的失焦保存
+    refreshing=true;
+    if(reg && reg.waiting) reg.waiting.postMessage({type:"SKIP_WAITING"}); else location.reload();
+  });
+  sw.addEventListener("controllerchange",function(){ if(!refreshing || reloaded) return; reloaded=true; location.reload() });
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(function(r){
+    reg=r;
+    if(r.waiting) mark();
+    watch(r.installing);
+    r.addEventListener("updatefound",function(){ watch(r.installing) });
+    document.addEventListener("visibilitychange",function(){ if(!document.hidden) check() });
+    setInterval(check,60*60*1000);
+  }).catch(function(){});
 })();
 </script>
 </body>

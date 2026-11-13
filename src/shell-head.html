@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="On a Cut">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="__THEME__">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>try{ window.__onacutHomeNew = navigator.standalone===true && localStorage.getItem("onacut.v1")===null }catch(e){ window.__onacutHomeNew=false }</script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<style>
+#upd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;align-items:center;border-radius:99px;background:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px rgba(0,0,0,.28);max-width:calc(100vw - 32px);white-space:nowrap}
+#upd button{border:0;background:transparent;color:inherit;font-family:inherit;cursor:pointer}
+#upd-go{min-height:40px;padding:0 4px 0 18px;font-weight:600;font-size:14px}
+#upd-x{min-width:40px;min-height:40px;padding:0;font-size:14px;border-radius:99px}
+html.upd-on #toast{bottom:calc(124px + env(safe-area-inset-bottom,0px))}
+html.upd-on body{padding-bottom:calc(136px + env(safe-area-inset-bottom,0px))}
+</style>
+</head>
+<body>

@@ -1,5 +1,76 @@
 # 阶段性开发交接摘要
 
+## 2026-11-13 · 批次 3：PWA 离线安装 + GitHub Pages + 施工规则 + 冒烟脚本（v9）
+
+`src/engine.js`、`src/foods.js`、`tests/` 没有改动；`src/on-a-cut.html` 只改了任务单 2.6 指定的一行。没有新增任何 localStorage 键和持久化字段。
+
+### 已完成改动
+
+- **可安装、可离线的 GitHub Pages 版**（`index.html`）：
+  - 新增 `src/shell-head.html` / `src/shell-tail.html`（外壳，原来写在 `build.sh` 的 printf 里）和 `src/sw.js`（service worker 模板）。
+  - 第一次打开后断网也能用；发布新版本后页面底部出现“有新版本，点此刷新”横条，点了才刷新，任何情况下都不自动刷新。
+  - 数字字体的 Google Fonts `<link>` 在 `index.html` 里改成不阻塞渲染，离线或字体请求卡住时用系统字体。
+- **Artifact 版**（`dist/page.html`）：不注册 service worker、不引用 manifest。和 47dce36 相比只多了 2.6 那一处插入，已发布到原链接（Version 12，能力声明沿用 `db`、`user`、`sample`）。
+- **`src/on-a-cut.html`**：首次设置第 1 步，在说明文字和表单之间加了一段读 `window.__onacutHomeNew` 的提示（iPhone 主屏幕版第一次打开时，告诉用户怎么从 Safari 迁移数据）。
+- **`build.sh`**：生成 `dist/page.html` 的那一段没动；之后新增素材检查、主题色读取、字体行替换、拼 `index.html`、生成 `sw.js`、构建断言。最后一行输出带版本号。
+- **图标与 manifest**：`tools/brand.json`（颜色）、`tools/make-icons.js`（零依赖，自带 PNG 编码）；生成并提交了 `icons/` 下 4 个 PNG 和 `manifest.webmanifest`。
+- **工具**：`tools/serve.js`（零依赖静态服务器，挂在 `/on-a-cut/` 下）、`tools/smoke.js`（Playwright 冒烟脚本，7 项）、`tools/package.json` 和 `package-lock.json`。
+- **其他新文件**：`.nojekyll`（空）、`.gitignore`（`tools/node_modules/`、`tools/out/`）。
+- **文档**：`CLAUDE.md`（构建、图标、两个线上环境、走查方式、“冒烟脚本”和“施工规则”两节）、`README.md`（部署一节重写，新增“安装到手机 / 离线使用”和“iPhone 主屏幕版的数据是单独的”）、`docs/SPEC.md`（构建与外壳、PWA 小节、运行环境限制、变更记录 v9）。
+- **验证**：
+  - `node --test tests/` 44 组全部通过，数量不变。
+  - `node tools/make-icons.js` 连续运行两次没有 diff；换色后图标和 manifest 的两个颜色字段都变，改回后工作区干净；颜色格式不对时报错退出。4 个 PNG 已目视检查。
+  - `sh build.sh` 连续构建两次没有 diff（版本 2168733911）；改 `src/on-a-cut.html` 一个字后版本号变成 4136550087，还原后变回。
+  - 构建断言自测：往 `dist/page.html` 塞 `serviceWorker`、改掉字体 link 行、拿走 manifest，三种情况都报错退出。
+  - `node smoke.js` 7 项全部通过，退出码 0。
+  - 400px 走查（通过 `serve.js`，浅色和深色各一遍）：四个页签没有横向溢出和控制台报错；横条出现后滚到底，最后一行在横条上方；横条和 toast 同时出现时 toast 在上、相隔 12px，“撤销”点得到；深色模式下横条是浅绿底深色字，清晰可读；`file://` 打开正常、不注册 service worker。
+  - 红线自查：`git diff 47dce36 --stat` 里没有 `src/engine.js`、`src/foods.js`、`tests/`；`src/on-a-cut.html` 的 diff 只有 1 行；全仓没有新的 `localStorage.setItem`，新增代码里出现的键名只有 `onacut.v1`（外壳里只读）。
+
+### 技术约束 / 结构变更（后续批次直接读取）
+
+- **三个构建产物**：`dist/page.html`（Artifact）、`index.html`（Pages）、`sw.js`（Pages 的 service worker）。两个页面产物的差别只在外壳（`src/shell-head.html`、`src/shell-tail.html`）里处理，页面主体不判断自己在哪个产物里。
+- **`window.__onacutHomeNew`**：由 `src/shell-head.html` 的内联脚本在页面脚本之前设置，值是 `navigator.standalone===true && localStorage.getItem("onacut.v1")===null`，出错时为 `false`。只读 localStorage。页面里**唯一**读取它的地方是首次引导第 1 步（`renderSheet()` 的 `step===0` 那一行）。Artifact 版里是 `undefined`。它在页面加载时算一次，之后不更新；没完成设置就关掉再打开，提示还在（引导完成前页面不写 `onacut.v1`）。
+- **更新横条 `#upd` 和 `html.upd-on`**：
+  - `#upd` 在 `src/shell-tail.html` 里，默认 `hidden`。里面两个按钮 `#upd-go`（“有新版本，点此刷新”）和 `#upd-x`（✕），都不带 `data-act` / `data-tab`。
+  - 显示条件：有新版本装好在等（且页面已被旧版本控制）+ 这次打开没点过 ✕ + `#sheet` 处于 `hidden`。
+  - 横条显示时 `<html>` 带 class `upd-on`，隐藏时去掉。
+  - 层级：nav `z-index:20` < `#upd` 30 < `#sheet` 40 < `#toast` 50。
+  - 位置：`#upd` 的 `bottom` 是 `72px + 安全区`（底部导航上方）；`html.upd-on #toast` 的 `bottom` 从 `92px` 改为 `124px + 安全区`（在横条上方）；`html.upd-on body` 的下内边距从 `84px` 改为 `136px + 安全区`。任务单给的起点数值实测可用，没有调整。
+  - 抽屉打开时横条隐藏，靠 `MutationObserver` 监听 `#sheet` 的 `hidden` 属性。**所以开关抽屉必须继续通过 `#sheet` 的 `hidden` 属性**，改成别的方式（比如 class）横条就不会跟着藏。
+  - ✕ 的状态、“待更新”的状态都是外壳脚本里的内存变量，不写存储。
+- **页面主体不能占用 `#upd`、`#upd-go`、`#upd-x` 这三个 id。**
+- **缓存名格式**：`onacut-<cksum>`。`<cksum>` 是 `cat index.html manifest.webmanifest icons/*.png src/sw.js | cksum` 的第一个字段，只和内容有关。新版本激活时只删其他 `onacut-` 开头的缓存。
+- **service worker 行为**：只处理同源 GET；预缓存 7 项（`./`、`./index.html`、manifest、4 个图标）；导航请求一律返回缓存里的 `./index.html`；运行时不写缓存；安装后不自动接管，收到 `{type:"SKIP_WAITING"}` 才接管；文件里不能出现 `localStorage`。
+- **颜色唯一来源**：`tools/brand.json` 的 `color`（`#RRGGBB`）。图标、manifest 的 `theme_color` / `background_color`、`<meta name="theme-color">` 都从它来。改颜色的流程：改 `brand.json` → `node tools/make-icons.js` → `sh build.sh`。`build.sh` 不生成图标，只从 `manifest.webmanifest` 读主题色。
+- **字体 link 行**：`build.sh` 按整行精确匹配 `src/on-a-cut.html` 第 3 行的那个 `<link>`。以后改这一行（换字体、加参数）要同步改 `build.sh` 里的 `FONT_URL`，否则构建报“没找到字体 link 行”。
+- **构建断言**：`index.html` 里 `serviceWorker.register` 这段文字必须恰好出现 1 次。外壳脚本里不要给 `navigator.serviceWorker` 起别名再调 `register`，注释里也不要写这个词。
+- **冒烟脚本的选择器依赖**：`#cu-q`、`#sr .sr-i .pbtn`、`.entry [data-act="dec"]`、`#toast [data-act="undo"]`、`[data-act="profile"]`、`[data-act="shclose"]`、`[data-act="obnext"]`、`#dr-pf-age` / `#dr-pf-h` / `#dr-pf-w`、`[data-act="hzg"]` / `hz` / `hzq` / `hzadd`、`.hero .big`、`.verdict`、导航按钮文字。页面改了这些，`tools/smoke.js` 要跟着改。
+
+### 遗留问题 / 注意事项
+
+- **和任务单不一致的地方**：
+  - **GitHub Pages 没有用 `gh` 开启**：这台机器没装 `gh`（`command not found`），按任务单没有重试。用公开接口查到仓库 `has_pages: true`，线上地址在施工前就返回 200，说明 Pages 之前已经开启。线上验证结果见本节最后一条。
+  - **`.gitignore` 多了一行 `tools/out/`**（任务单 2.7 只写了 `tools/node_modules/`，2.8 要求截图目录也忽略，合在一起写了）。
+  - **冒烟第 3 项“数据和撤销前一致”的比较方式**：比的是“删除前那一刻”和“撤销后”的 localStorage，去掉了 `updatedAt` 字段（每次改动都会更新的时间戳，撤销后必然不同）。第 6 项“点刷新前后一致”是整串原样比较。
+  - **冒烟脚本不把字体请求失败算作控制台报错**：离线时 `fonts.googleapis.com` 请求必然失败并在控制台留一条 error，这是预期行为。其他 console error 和 pageerror 照常判失败。
+  - **冒烟第 2、3 项共用一个流程，第 5、6 项共用一个环境**（任务单写的是“每个流程用全新的 context”，同时又要求 3 在 2 的基础上、6 在 5 的环境里）。其余每项各用新的 context。
+  - **Artifact 发布后的线上确认没有在真实页面里做**：这个会话打不开需要登录的 claude.ai 页面。替代做法：确认了发布内容和线上旧版本只差 2.6 那一行；另外在本地用 `window.claude` 的桩加载 `dist/page.html`，“云端已同步”、搜不到时的“AI 估算”按钮、引导第 1 步没有 Safari 提示（即使 `navigator.standalone===true`）都正常，没有 service worker 注册。**请在真实 Artifact 链接里再看一眼这三点。**
+- **已知限制**：
+  - **Pages 上直接访问 `…/on-a-cut/dist/page.html`，在 service worker 接管后会得到 `index.html`**：任务单规定导航请求一律返回缓存的 `./index.html`。`dist/page.html` 本来只用来发布 Artifact，没人直接访问，没有处理。
+  - **`<meta name="theme-color">` 是固定的品牌色**，深色模式下浏览器顶栏仍是深绿色，不跟随页面的深色配色。
+  - **点过 ✕ 之后，这次打开期间不会再提示**，即使后面又发布了更新的版本；重新打开页面才会再出现。
+  - **多个标签页**：在一个标签页点了刷新，其他标签页不会自动刷新（按任务单），它们继续显示旧页面；那些页面上的横条如果已经显示，点一下会直接重新加载。
+  - **Artifact 发布时平台有一条警告**：页面里有脚本触发的文件下载，而 Artifact 查看器不允许下载。这是原有的 `exportData`（47dce36 就有），在 `window.claude` 存在时走的是复制文本，不会触发下载，功能不受影响。没有改动。
+- **没覆盖的边界（交给“真机验证”环节）**：
+  - iPhone 主屏幕安装、图标和启动外观、`navigator.standalone` 下的迁移提示、Safari 与主屏幕版的数据隔离。
+  - Android Chrome 的安装提示和 maskable 图标裁切。
+  - iOS 上 service worker 的更新时机（回到前台时检查、60 分钟检查一次）和横条在刘海 / 底部安全区机型上的位置。
+  - 冒烟脚本只跑了无头 Chromium，没有跑 WebKit / Firefox。
+- **留给后续批次**：
+  - 视觉改版（部门 6）改颜色时只改 `tools/brand.json`，见上面的流程。页面里的 `--accent` 是另一处定义（`src/on-a-cut.html` 的 CSS 变量），目前和 `brand.json` 数值相同，但没有联动。
+  - 引导抽屉仍然没有恢复入口（任务单 2.6 的背景），这次只加了提示文字。
+  - 之前批次的遗留都没有处理：`fav` 里指向已删除食物的 id 不清理；`settings` 多设备同时修改整体覆盖；抽屉打开时云端拉到新数据不自动刷新；组合只能在整理模式里编辑；TAGS 过滤没做。
+
 ## 2026-11-13 · 批次 2B.1：对冲页甜点分组、交接档案文案、两处交互修补（v8.3）
 
 只改了 `src/on-a-cut.html` 和文档；`src/engine.js`、`src/foods.js`、`tests/` 没有改动，没有新增任何持久化字段。

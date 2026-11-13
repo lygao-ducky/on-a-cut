@@ -2,15 +2,33 @@
 
 手机上用的饮食与训练记录工具：按“掌、拳、勺”记录，自动计算每日热量和三大营养素目标。纯前端单文件，无需后端。
 
-需求、计算规则和功能模块见 [docs/SPEC.md](docs/SPEC.md)。源码在 `src/foods.js`（食物库）、`src/engine.js`（计算引擎）和 `src/on-a-cut.html`（页面），`dist/page.html` 与 `index.html` 由 `sh build.sh` 生成；测试用 `node --test tests/`。
+需求、计算规则和功能模块见 [docs/SPEC.md](docs/SPEC.md)。源码在 `src/foods.js`（食物库）、`src/engine.js`（计算引擎）和 `src/on-a-cut.html`（页面），`dist/page.html`、`index.html` 和 `sw.js` 由 `sh build.sh` 生成；测试用 `node --test tests/`。
 
 ## 部署到 GitHub Pages
 
-1. 把包含 `index.html` 的分支合并到默认分支（或直接用当前分支）。
-2. 仓库 Settings → Pages → Source 选 “Deploy from a branch”，选择分支和 `/ (root)`，保存。
-3. 一两分钟后访问 `https://<用户名>.github.io/on-a-cut/`，在手机浏览器里“添加到主屏幕”。
+线上地址：<https://lygao-ducky.github.io/on-a-cut/>
+
+- **开启方式**（只需做一次）：仓库 Settings → Pages → Source 选 “Deploy from a branch” → 分支选 `main`、目录选 `/ (root)` → Save。
+- **发布流程**：改动合并到 `main` 后一两分钟生效。已经打开的页面底部会出现“有新版本，点此刷新”，点一下就更新到新版本。
 
 每个访问者的数据只保存在自己浏览器的 localStorage 里，互不干扰。换手机或清理缓存前，在右上角“身体档案与设置”里导出备份 (JSON)，之后可恢复。
+
+## 安装到手机 / 离线使用
+
+- **iPhone**：用 Safari 打开上面的地址 → 分享 → 添加到主屏幕。
+- **Android**：用 Chrome 打开 → 菜单 → 安装应用（或“添加到主屏幕”）。
+- 第一次打开之后，没有网络也能用。
+- 有新版本时页面不会自己刷新，点底部的横条才更新，不会打断正在记录的内容。
+
+## iPhone 主屏幕版的数据是单独的
+
+同一台 iPhone 上，Safari 里的页面和主屏幕上的 App 各有一份数据，互不相通。之前在 Safari 里用过的话，按下面的步骤迁移：
+
+1. 在 Safari 打开本页，点右上角人像 → 导出备份。
+2. 打开主屏幕上的 App，完成首次设置。
+3. 点右上角人像 → 恢复数据，选择刚才的备份（会覆盖刚填的设置）。
+
+主屏幕版第一次打开时，首次设置里也有这句提示。Android 安装版和 Chrome 共用数据，不需要迁移。
 
 ## 功能
 

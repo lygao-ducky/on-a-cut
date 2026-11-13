@@ -1,0 +1,33 @@
+<div id="upd" role="status" hidden><button id="upd-go" type="button">有新版本，点此刷新</button><button id="upd-x" type="button" aria-label="关闭更新提示">✕</button></div>
+<script>
+/* 离线缓存的注册与更新提示。只在 GitHub Pages 版（index.html）里有；任何情况下都不自动刷新页面，用户点了横条才刷新。 */
+(function(){
+  if(!("serviceWorker" in navigator) || window.claude || location.protocol==="file:") return;
+  var sw=navigator.serviceWorker, root=document.documentElement;
+  var bar=document.getElementById("upd"), sheet=document.getElementById("sheet");
+  var reg=null, pending=false, dismissed=false, refreshing=false, reloaded=false;
+  /* 显示条件：有新版本在等 + 这次打开没点过 ✕ + 抽屉没开（抽屉里的草稿只在内存里，刷新会丢） */
+  function show(){ var on=pending && !dismissed && (!sheet || sheet.hidden); bar.hidden=!on; root.classList.toggle("upd-on",on) }
+  function mark(){ if(sw.controller){ pending=true; show() } }   // 第一次安装（没有 controller）不提示
+  function watch(w){ if(w) w.addEventListener("statechange",function(){ if(w.state==="installed") mark() }) }
+  function check(){ if(reg) reg.update().catch(function(){}) }
+  if(sheet) new MutationObserver(show).observe(sheet,{attributes:true,attributeFilter:["hidden"]});
+  document.getElementById("upd-x").addEventListener("click",function(){ dismissed=true; show() });
+  document.getElementById("upd-go").addEventListener("click",function(){
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();   // 触发页面的失焦保存
+    refreshing=true;
+    if(reg && reg.waiting) reg.waiting.postMessage({type:"SKIP_WAITING"}); else location.reload();
+  });
+  sw.addEventListener("controllerchange",function(){ if(!refreshing || reloaded) return; reloaded=true; location.reload() });
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(function(r){
+    reg=r;
+    if(r.waiting) mark();
+    watch(r.installing);
+    r.addEventListener("updatefound",function(){ watch(r.installing) });
+    document.addEventListener("visibilitychange",function(){ if(!document.hidden) check() });
+    setInterval(check,60*60*1000);
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>

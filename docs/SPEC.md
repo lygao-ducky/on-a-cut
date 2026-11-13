@@ -78,7 +78,7 @@
 底部四个标签：今天 / 对冲 / 记录 / 准则。每页右上角有人像按钮，打开“身体档案与设置”。
 
 ### 首次引导（`openSheet("onb")`）
-本地没有档案时自动弹出，四步：性别 / 年龄 / 身高 → 当前体重 / 目标体重 / 模式 → 每周训练次数 / 进食时间（不限时、16+8、14+10）→ 展示计算结果。完成后写入档案、目标、每周安排，周期起始日为当天。
+本地没有档案时自动弹出，四步：性别 / 年龄 / 身高 → 当前体重 / 目标体重 / 模式 → 每周训练次数 / 进食时间（不限时、16+8、14+10）→ 展示计算结果。完成后写入档案、目标、每周安排，周期起始日为当天。iPhone 主屏幕版第一次打开（`window.__onacutHomeNew` 为真，见第 6 节“PWA”）时，第 1 步多一段提示，说明怎么从 Safari 把数据迁移过来；这个抽屉没有关闭按钮也没有恢复入口，所以提示放在这里。
 
 ### 身体档案与设置（`openSheet("prof")`）
 身体数据、模式、训练次数（实时预览目标）、手动目标开关、“超出热量自动摊平到之后几天”开关（v8.1，`#dr-spread`，引导里不显示）、进食窗口时间、每周默认安排、数据备份。点“保存”才生效。
@@ -197,12 +197,42 @@
 - `src/foods.js`：食物库数据（见第 5 节“食物库”），没有逻辑。浏览器里是 `self.OnACutFoods`，Node 里是 `module.exports`。文件里不能出现 `</script>`。必须先于 engine.js 加载。
 - `src/engine.js`：计算引擎，全部是纯函数和常量（`compute`、`pfError`、`buildTpl`、`advise`、`dayOk`、`totals`、`mealNote`、食物表与查找函数、超出摊平 `floorOf` / `cutCap` / `shiftT` / `carryOver`、日期工具），不碰 DOM 和存储。开头从 `OnACutFoods`（Node 下 `require("./foods.js")`）取数据，取不到就抛错。浏览器里是 `window.OnACutEngine`，Node 里是 `module.exports`。文件里不能出现 `</script>`。
 - `src/on-a-cut.html`：页面主体（样式、存储与同步、视图、事件）。主脚本前有一行 `<!--ENGINE-->` 占位符，开头从 `OnACutEngine` 解构所需函数。
-- `sh build.sh`（无参数）：把 foods.js 和 engine.js（foods 在前，同一个 `<script>`）内联到占位符处 → `dist/page.html`（发布 Artifact 用）；再套上外壳 → `index.html`（GitHub Pages 用）。两个产物都提交进仓库，都不手改。
+- `sh build.sh`（无参数）生成三个产物，都提交进仓库，都不手改：
+  - `dist/page.html`：把 foods.js 和 engine.js（foods 在前，同一个 `<script>`）内联到占位符处。发布 Artifact 用，不注册 service worker、不引用 manifest。
+  - `index.html`：`src/shell-head.html`（`__THEME__` 换成主题色）+ `dist/page.html`（字体 `<link>` 换成不阻塞渲染的写法）+ `src/shell-tail.html`。GitHub Pages 用。
+  - `sw.js`：`src/sw.js` 里的 `__BUILD__` 换成版本号。版本号是 `index.html`、`manifest.webmanifest`、`icons/*.png`、`src/sw.js` 拼起来的 `cksum`，只和内容有关，重复构建不变。
+  - 构建断言（不满足就报错退出）：5 个 PWA 素材都在；`manifest.webmanifest` 里取得到 `theme_color`；`dist/page.html` 里字体 `<link>` 行恰好 1 行；`dist/page.html` 里没有 `serviceWorker`、`rel="manifest"`、`manifest.webmanifest`；`index.html` 里 `serviceWorker.register` 和 `rel="manifest"` 各恰好 1 次、有 `media="print" onload=`、没有 `__THEME__`；`sw.js` 里没有 `__BUILD__` 和 `localStorage`。
+- 外壳：`src/shell-head.html`（`<!doctype html>` 到 `<body>`：meta、manifest 和图标链接、`window.__onacutHomeNew` 脚本、更新横条样式）和 `src/shell-tail.html`（横条元素、service worker 注册与更新脚本，到 `</html>`）。两个产物的差别只在外壳里处理，页面主体不判断自己在哪个产物里。
+- 图标与 manifest：颜色唯一来源是 `tools/brand.json` 的 `color`（`#RRGGBB`）。`node tools/make-icons.js`（零依赖，自带 PNG 编码，输出确定）生成 `icons/icon-192.png`、`icons/icon-512.png`（圆角方块）、`icons/icon-maskable-512.png`、`icons/apple-touch-icon.png`（铺满）和 `manifest.webmanifest`，都要提交。`build.sh` 不重新生成它们，只从 manifest 里读主题色。改颜色：改 `brand.json` → 运行 `make-icons.js` → 运行 `build.sh`。
+- `tools/`：`serve.js`（零依赖静态服务器，把目录挂在 `/on-a-cut/` 下，每次请求读磁盘）、`smoke.js`（Playwright 冒烟脚本，7 项，见 `CLAUDE.md`）、`package.json`（只有 playwright 一个开发依赖）。冒烟脚本不属于 `node --test tests/`。
 - 测试：`node --test tests/`，提交前必须通过。`tests/engine.test.js` 覆盖 compute、pfError、日期运算、buildTpl、advise（示例 + 500 组随机输入的不变量），以及 searchFoods、recentFoods、portionsOf、guessCat、baseId；`tests/carry.test.js` 覆盖超出摊平（15 组，含 300 组随机历史的不变量）；`tests/foods.test.js` 校验食物库的结构、旧 id 与 v6 数值一致、份量变体、各分组数量。入口是 `tests/run-all.js`（`tests/package.json` 的 `main` 指向它，Node 22 靠这个找到测试）；新增测试文件要在 `run-all.js` 里登记，入口文件名不要带 `.test.`，否则会扫描目录的新版 Node 会把用例跑两遍。
 - 写入 `settings` 或某一天的数据必须经过 `touch()`；营养值在记录时拷贝进条目。
 
+### PWA：离线、安装与更新（v9，只在 `index.html` 里）
+
+- **缓存策略**（`sw.js`）：
+  - 只处理同源的 GET 请求；跨域请求（Google Fonts 等）不调用 `respondWith`，交给浏览器。
+  - 安装时预缓存 7 项：`./`、`./index.html`、`./manifest.webmanifest` 和 4 个图标，请求带 `cache:"reload"`（绕过 GitHub Pages 的 10 分钟 HTTP 缓存）。不缓存 `sw.js` 自己和 `dist/`。
+  - 取用时缓存优先：导航请求一律返回缓存里的 `./index.html`，没有才走网络；其他同源 GET 命中缓存就返回，否则走网络。运行时不往缓存写东西。
+  - 缓存名是 `onacut-<版本号>`。新版本激活时删除其他 `onacut-` 开头的缓存，然后 `clients.claim()`。
+  - 安装后不自动接管（不调用 `skipWaiting()`），收到页面发来的 `{type:"SKIP_WAITING"}` 才接管。
+  - service worker 不读写 localStorage，文件里也不能出现这个词。
+- **更新横条**（`#upd`，文字“有新版本，点此刷新”，右边一个 ✕）：
+  - 显示条件，三条同时满足：有新版本装好在等（且当前页面已被旧版本控制，第一次安装不提示）；这次打开页面期间没点过 ✕；`#sheet` 抽屉没开（抽屉里的草稿只在内存里，刷新会丢）。用 `MutationObserver` 盯着 `#sheet` 的 `hidden` 属性。
+  - 显示时 `<html>` 带 class `upd-on`：`#toast` 上移到横条上方（两者不重叠，“撤销”点得到），`body` 的下内边距加大（最后一行不被挡住）。
+  - 层级：nav 20 < 横条 30 < 抽屉 40 < toast 50。横条在底部导航上方 `72px + 安全区`。
+  - 点横条：先让当前输入框失焦（触发页面的失焦保存），再让新版本接管，接管后刷新一次。点 ✕ 只关本次（内存变量，不写存储），下次打开页面还会出现。
+  - **任何情况下都不自动刷新**。别的标签页点了刷新，本页不跟着刷。
+  - 检查新版本的时机：打开页面时、页面从后台回到前台时、每 60 分钟。
+  - 页面主体不能占用 `#upd`、`#upd-go`、`#upd-x` 这三个 id。两个按钮不带 `data-act` / `data-tab`，页面的全局点击监听会忽略它们。
+- **不注册的情况**：浏览器不支持、`window.claude` 存在（Artifact）、`file://` 打开。
+- **字体降级**：数字字体的 Google Fonts `<link>` 在 `index.html` 里被 `build.sh` 改成 `media="print" onload="this.media='all'"`，不阻塞渲染；离线或加载失败时 `--num` 字体栈落到系统字体。`dist/page.html` 里保持原样。
+- **`window.__onacutHomeNew`**：`src/shell-head.html` 里的内联脚本在页面脚本之前设置，值为 `navigator.standalone===true && localStorage.getItem("onacut.v1")===null`（iOS 主屏幕版，且本地还没有数据），出错时为 `false`。只读 localStorage，不写。页面里唯一读取它的地方是首次引导第 1 步。Artifact 版里没有这个变量（`undefined`），不显示提示。Android 安装版和 Chrome 共用数据，不需要。
+
 
 - Artifact 内没有 `confirm/alert`、不能下载文件。
+- Artifact 版（`dist/page.html`）不注册 service worker、不引用 manifest，不能离线、不能安装；这些只在 GitHub Pages 版里有。
+- 同一台 iPhone 上，Safari 和主屏幕 App 的 localStorage 是分开的，数据要用导出 / 恢复备份迁移。
 - “AI 估算”依赖 `sample` 能力，只在 Artifact 链接里可用；GitHub Pages 上搜不到时只有“手动填”。
 - 食物库营养值均为估算值；计算结果是一般性健康建议，页面内有免责声明。
 
@@ -219,6 +249,7 @@
 - v8.1：超出热量自动摊平（批次 1.1）。某天超出调整后上限 30 kcal 以上，之后最多 5 天自动下调热量和碳水目标（每天最多 150 kcal，不低于安全下限和 50g 碳水），过期作废、不奖励少吃；engine 新增 `floorOf`、`cutCap`、`shiftT`、`carryOver`；今天页、参考餐单、下一餐建议、对冲页、30 天日历改用调整后的目标，今天页显示“少 X kcal，在摊还 M/D 超出的部分”，超额说明和对冲 pill 写明之后几天各扣多少；设置里可关闭（`settings.spread`）；`advise.spreadDays` 弃用。
 - v8.2：食物数据清理（批次 2A.1）。默认格子按大众常吃重选（各分类 10–12 个）；tea 的 g 改为 snack，约定甜点分类的 g 只能是甜点 / 饮品零食；法棍去重：bag3 追加半根 / 1 根份量，bag2 加 hide 不进搜索和格子；engine 的 searchFoods 跳过 hide 条目。页面未改动。
 - v8.3：对冲页甜点分组、交接档案文案、两处交互修补（批次 2B.1）。对冲页甜点按 甜点 / 饮品零食 / 我的 分组，切换组不影响已选中项；页面遍历 FOODS 时一律过滤 hide；AI 交接档案的对冲文案改为 v8.1 的自动摊平规则，随摊平开关两种写法；份量 / 时间输入框失焦时推迟重绘，改完直接点别的按钮不再丢点击；“存为组合”名称框支持回车保存。只改了页面，没有新增持久化字段。
+- v9：PWA 离线安装（批次 3）。GitHub Pages 版加 manifest、图标和 service worker，可安装、可离线打开；发布新版本后底部出现“有新版本，点此刷新”横条，点了才刷新；数字字体改为不阻塞加载；iPhone 主屏幕版第一次打开时在引导第 1 步提示数据迁移方法；外壳拆到 `src/shell-head.html` / `src/shell-tail.html`，构建多一个产物 `sw.js` 并加断言；新增 `tools/`（图标生成、静态服务器、Playwright 冒烟脚本）。Artifact 版只多了引导里的那个挂载点。没有新增持久化字段。
 
 ## 8. 项目发起人的个人设定（旧数据）
 
