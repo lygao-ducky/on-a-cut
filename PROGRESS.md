@@ -61,6 +61,11 @@
   - **点过 ✕ 之后，这次打开期间不会再提示**，即使后面又发布了更新的版本；重新打开页面才会再出现。
   - **多个标签页**：在一个标签页点了刷新，其他标签页不会自动刷新（按任务单），它们继续显示旧页面；那些页面上的横条如果已经显示，点一下会直接重新加载。
   - **Artifact 发布时平台有一条警告**：页面里有脚本触发的文件下载，而 Artifact 查看器不允许下载。这是原有的 `exportData`（47dce36 就有），在 `window.claude` 存在时走的是复制文本，不会触发下载，功能不受影响。没有改动。
+- **线上验证结果（推送 d9ab8d4 之后，2026-11-13）**：通过，不需要用户手动开启 Pages。
+  - `https://lygao-ducky.github.io/on-a-cut/`、`sw.js`、`manifest.webmanifest`（Content-Type 是 `application/manifest+json`）、`icons/icon-192.png` 都返回 200。
+  - 线上 `sw.js` 第一行是 `const VERSION="2168733911";`，和本地一致，推送后约半分钟生效。这也说明 Pages 的来源就是 `main` 分支根目录。
+  - Playwright 打开线上地址：service worker 控制页面，缓存只有 `onacut-2168733911`；记一条食物后断网刷新，今天页和记录都在，没有报错和横向溢出。
+  - 没验证的一点：Pages 的来源设置没有通过接口直接读（需要 `gh` 或令牌），是从上面“推送后线上内容随之更新”推出来的。
 - **没覆盖的边界（交给“真机验证”环节）**：
   - iPhone 主屏幕安装、图标和启动外观、`navigator.standalone` 下的迁移提示、Safari 与主屏幕版的数据隔离。
   - Android Chrome 的安装提示和 maskable 图标裁切。
