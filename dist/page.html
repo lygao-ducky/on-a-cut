@@ -793,7 +793,7 @@ async function initCloud(){
 }
 
 /* ---------- domain ---------- */
-let cur=today(), lastToday=today(), tab=lsGet("tab")||"today", cat=null, meal=1, hz={id:null,q:1}, favEdit=false;
+let cur=today(), lastToday=today(), tab=lsGet("tab")||"today", cat=null, meal=1, hz={id:null,q:1}, hzg="sweet", favEdit=false;
 let recentCache=[], recentCnt={}, qEdit=null, tEdit=null, cbDraft=null, cdr=null, fq="", fe=null;
 const cuBlank=()=>({q:"",n:"",p:"",c:"",f:"",k:"",note:"",cat:"",fav:false,open:false,busy:false,err:""});
 let cu=cuBlank();
@@ -925,7 +925,7 @@ function catChips(c){const s=S.settings, full='style="grid-column:1/-1"'; let h=
         :`<button class="chip" data-act="cbadd" data-v="${cb.id}"><span class="n">${esc(cb.n)}</span><span class="m">${cb.items.length} 样 · ${comboK(cb)} kcal</span></button>`).join("")
      +favFoods().map(f=>`<button class="chip${favEdit?" del":""}" data-act="${favEdit?"unfav":"add"}" data-v="${esc(f.id)}"><span class="n">${favEdit?"✕ ":""}${esc(f.n)}</span><span class="m">${chipSub(f)}</span></button>`).join("")
      +`<button class="link" data-act="favedit" ${full}>${favEdit?"完成":"整理常吃"}</button>`}
-  else h=FOODS.filter(f=>f.cat===c&&f.top).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
+  else h=FOODS.filter(f=>f.cat===c&&f.top&&!f.hide).map(f=>`<button class="chip" data-act="add" data-v="${f.id}"><span class="n">${f.n}</span><span class="m">蛋白 ${f.p} · 碳水 ${f.c} · 脂肪 ${f.f}</span></button>`).join("")
      +s.my.filter(f=>f.cat===c).slice(0,12).map(f=>`<button class="chip" data-act="add" data-v="${esc(f.id)}"><span class="n">${esc(f.n)}<span class="tag">我的</span></span><span class="m">${chipSub(f)}</span></button>`).join("");
   if(!s.combos.length&&(c==="recent"||c==="fav")) h+=`<div class="muted small" ${full}>常吃的一餐记一次后，点这一餐下面的“存为组合”，以后一键记入。</div>`;
   return h}
@@ -1029,8 +1029,11 @@ function viewHedge(){
   const day=dayOf(cur), sel=hz.id?findFood(hz.id):null, t=tgtOf(cur), T=totals(day);
   if(sel){T.p+=sel.p*hz.q;T.c+=sel.c*hz.q;T.f+=sel.f*hz.q;T.k+=kcalOf(sel)*hz.q}
   const show=sel||day.entries.some(e=>e.s);
-  const opts=FOODS.filter(f=>f.cat==="sweet").concat(S.settings.my.filter(f=>f.cat==="sweet"));
-  const chips=opts.map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${esc(f.base?f.base.n:f.n)}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
+  /* 甜点分三组：内置按 g 分（g 不是 sweet 的都归饮品零食），自定义的单独一组；隐藏条目不列出。hzg 只在内存里 */
+  const grp={sweet:FOODS.filter(f=>f.cat==="sweet"&&!f.hide&&f.g==="sweet"),snack:FOODS.filter(f=>f.cat==="sweet"&&!f.hide&&f.g!=="sweet"),my:S.settings.my.filter(f=>f.cat==="sweet")};
+  if(!grp[hzg]||(hzg==="my"&&!grp.my.length)) hzg="sweet";
+  const gtabs=[["sweet","甜点"],["snack","饮品零食"],["my","我的"]].filter(g=>g[0]!=="my"||grp.my.length).map(g=>`<button data-act="hzg" data-v="${g[0]}" aria-pressed="${hzg===g[0]}">${g[1]} ${grp[g[0]].length}</button>`).join("");
+  const chips=grp[hzg].map(f=>`<button class="chip${hz.id===f.id?" sel":""}" data-act="hz" data-v="${f.id}"><span class="n">${esc(f.base?f.base.n:f.n)}</span><span class="m">${r0(kcalOf(f))} kcal</span></button>`).join("");
   let res='<div class="empty">点一款甜点，马上看到今晚怎么吃。</div>';
   if(show){const a=advise({T,t,mealsLeft:1,windowClosed:false,kOnly:kOnly(day)||(!!sel&&kOnlyE(sel))});
     const bud=(v,u,l)=>`<div><b class="${v<0?"neg":""}">${v<0?"超 ":""}${r0(Math.abs(v))}</b><span>${l}${v<0?"":"还剩"} ${u}</span></div>`;
@@ -1041,6 +1044,7 @@ function viewHedge(){
   return `
   <header class="top"><div class="date"><div class="d1">甜点对冲</div><div class="d2">${dayLabel()} · ${stInfo(stOf(day)).t}</div></div>${profBtn()}</header>
   <section class="panel">
+   <div class="tabs" role="group" aria-label="甜点分组">${gtabs}</div>
    <div class="chips c3">${chips}</div>
    ${sel?`<div class="row"><div class="grow"><b>${esc(sel.n)}</b> <span class="num muted">${r0(kcalOf(sel)*hz.q)} kcal</span></div>
      <div class="step"><button data-act="hzq" data-v="-0.5" aria-label="减半份">−</button><span class="q">×${hz.q}</span><button data-act="hzq" data-v="0.5" aria-label="加半份">+</button></div></div>
@@ -1142,7 +1146,7 @@ function aiBrief(){
 ${s.fast?`进食窗口：训练日 ${s.win.A[0]}–${s.win.A[1]}，休息日 ${s.win.C[0]}–${s.win.C[1]}。蛋白底线优先于断食窗口。`:"不限制进食时间。"}
 规则：每餐蛋白 25–40g；碳水集中在练后第一餐。
 计量（请用实物单位回答）：1 掌瘦肉≈30g 蛋白；1 拳主食≈33g 碳水；蛋白粉 1 大勺≈23g 蛋白；蔬菜两捧起、少油不限量；烹调油 1 茶匙 5g。
-甜点对冲：不批评，直接给当晚方案。先保蛋白，再从主食和油里腾额度；额度用完则当晚主食归零；仍超出的部分用之后 2–5 天各少半拳主食摊平，不加练。
+甜点对冲：不批评，直接给当晚方案。先保蛋白，再从主食和油里腾额度；额度用完则当晚主食归零；${s.spread?"全天仍超出目标上限 30 kcal 以上时，App 会从第二天起最多 5 天自动下调热量和碳水目标来摊平（每天最多 150 kcal、不超过当天目标的 10%，且不低于安全下限），5 天内摊不完的部分作废，不加练。":"超出的部分不自动摊平，之后几天照原目标吃，不加练。"}
 
 最近 7 天记录：
 ${rows||"（暂无）\n"}`;
@@ -1322,7 +1326,11 @@ const NAV=[["today","今天",'<path d="M4 11h16M6 11a6 6 0 0 0 12 0M12 5v2M8 4.5
  ["hedge","对冲",'<path d="M12 4v16M5 8h14M5 8l-2.5 6a3 3 0 0 0 5 0L5 8zM19 8l-2.5 6a3 3 0 0 0 5 0L19 8zM8 20h8"/>'],
  ["log","记录",'<path d="M3 12h2m14 0h2M6 8v8M18 8v8M9 6v12M15 6v12M9 12h6"/>'],
  ["guide","准则",'<path d="M6 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V4zM6 16h12M9.5 8h5M9.5 11.5h5"/>']];
+/* 失焦时不立刻重绘（否则同一次点击的目标按钮会被换掉、点击丢失），推迟 350ms；期间任何 render() 都会取消它 */
+let rT=0;
+const laterRender=()=>{clearTimeout(rT); rT=setTimeout(()=>{rT=0; render()},350)};
 function render(){
+  clearTimeout(rT); rT=0;
   calcLED();
   document.getElementById("app").innerHTML=tab==="today"?viewToday():tab==="hedge"?viewHedge():tab==="log"?viewLog():viewGuide();
   if(tab==="today"){ const fi=document.getElementById(qEdit!=null?"q-in":tEdit!=null?"mt-in":"-"); if(fi){fi.focus(); if(fi.id==="q-in") fi.select()} }
@@ -1341,10 +1349,15 @@ const findFood=id=>FBY[id]||S.settings.my.find(x=>x.id===id)||recentCache.find(x
 /* opts.live：实时记录。只有在看今天、且所选餐次不早于当前时段时才写进食时间 t（当天 0 点起的分钟数）；合并进已有条目时不改 t */
 function addFood(f,q,m,opts){const live=!!(opts&&opts.live)&&cur===today()&&ORD[m]>=ORD[autoMeal()];
   mut(cur,d=>{const ex=d.entries.find(e=>e.fid===f.id&&e.m===m); if(ex) ex.q=r1(ex.q+q); else {const e={id:uid(),fid:f.id,n:f.n,q:q,p:f.p,c:f.c,f:f.f,m:m,s:(f.cat==="sweet"||f.s)?1:0};if(f.k!=null)e.k=f.k;if(live)e.t=nowMin();d.entries.push(e)}})}
-/* 份量输入框：回车或失焦时保存；空值、非数字或 ≤0 放弃 */
-function commitQ(el){ if(qEdit==null) return; const id=qEdit, v=parseFloat(el&&el.value); qEdit=null;
+/* 份量输入框：回车或失焦时保存；空值、非数字或 ≤0 放弃。later：失焦路径，推迟重绘 */
+function commitQ(el,later){ if(qEdit==null) return; const id=qEdit, v=parseFloat(el&&el.value); qEdit=null;
   if(isFinite(v)&&v>0){const q=Math.min(20,Math.max(0.1,r1(v))); const e0=dayOf(cur).entries.find(x=>x.id===id); if(e0&&e0.q!==q) mut(cur,d=>{d.entries.find(x=>x.id===id).q=q})}
-  render()}
+  later?laterRender():render()}
+/* 存为组合：点“保存”或在名称框按回车。调用方负责 render() */
+function cbSave(){ if(!cbDraft) return; const nm=String(cbDraft.n).trim().slice(0,20); if(!nm){toast("给组合起个名字");return}
+  const items=dayOf(cur).entries.filter(e=>e.m===cbDraft.m).map(e=>{const it={n:e.n,q:e.q,p:e.p,c:e.c,f:e.f,s:e.s?1:0}; if(e.fid) it.fid=e.fid; if(e.k!=null) it.k=e.k; return it});
+  cbDraft=null; if(!items.length) return;
+  const cs=S.settings.combos; cs.unshift({id:"cb-"+uid(),n:nm,items}); if(cs.length>20) cs.length=20; touch("settings"); toast("已存为组合，在“常吃”里")}
 function copyText(txt,okMsg,boxId){const fb=()=>{const io=document.getElementById(boxId);if(io){io.hidden=false;io.value=txt;io.focus();io.select();toast("已放入文本框，请长按复制")}};
   try{navigator.clipboard.writeText(txt).then(()=>toast(okMsg),fb)}catch(e){fb()}}
 const cuAuto=()=>{const g=x=>Math.max(0,parseFloat(x)||0),v=4*g(cu.p)+4*g(cu.c)+9*g(cu.f);return v?"自动 "+r0(v):"自动"};
@@ -1457,10 +1470,7 @@ document.addEventListener("click",ev=>{
   else if(a==="cbnew"){const es=dayOf(cur).entries.filter(e=>e.m===+v); if(es.length<2) return;
     cbDraft={m:+v,n:es.slice(0,2).map(e=>e.n).join(" + ").slice(0,20)}}
   else if(a==="cbcancel"){cbDraft=null}
-  else if(a==="cbsave"){ if(!cbDraft) return; const nm=String(cbDraft.n).trim().slice(0,20); if(!nm){toast("给组合起个名字");return}
-    const items=dayOf(cur).entries.filter(e=>e.m===cbDraft.m).map(e=>{const it={n:e.n,q:e.q,p:e.p,c:e.c,f:e.f,s:e.s?1:0}; if(e.fid) it.fid=e.fid; if(e.k!=null) it.k=e.k; return it});
-    cbDraft=null; if(!items.length){render();return}
-    const cs=S.settings.combos; cs.unshift({id:"cb-"+uid(),n:nm,items}); if(cs.length>20) cs.length=20; touch("settings"); toast("已存为组合，在“常吃”里")}
+  else if(a==="cbsave"){cbSave()}
   else if(a==="inc"||a==="dec"){const e0=dayOf(cur).entries.find(x=>x.id===v); if(!e0) return;
     const step=()=>mut(cur,d=>{const e=d.entries.find(x=>x.id===v);e.q=r1(e.q+(a==="inc"?0.5:-0.5));if(e.q<=0)d.entries=d.entries.filter(x=>x.id!==v)});
     if(a==="dec"&&r1(e0.q-0.5)<=0) withUndo(cur,"已删除 "+e0.n,step); else step()}
@@ -1483,6 +1493,7 @@ document.addEventListener("click",ev=>{
   else if(a==="water"){mut(cur,d=>{d.water=Math.max(0,Math.min(16,(d.water||0)+ +v))})}
   else if(a==="hz"){hz={id:hz.id===v?null:v,q:1}} else if(a==="hzq"){hz.q=Math.max(0.5,r1(hz.q+ +v))}
   else if(a==="hzclear"){hz={id:null,q:1}}
+  else if(a==="hzg"){hzg=v}
   else if(a==="hzadd"){const f=hz.id?findFood(hz.id):null, q=hz.q;if(f){hz={id:null,q:1};withUndo(cur,"已记入"+dayLabel(),()=>addFood(f,q,4,{live:true}))}}
   else if(a==="lift"||a==="cardio"){mut(cur,d=>{d[a]=!d[a]})}
   else if(a==="syncw"){const pf=S.settings.profile, a1=avgW(weightSeries(),0,7); if(pf&&a1!=null){pf.w=r1(a1); if(!pf.custom&&!pfError(pf)){const r=compute(pf);S.settings.t={train:r.train,rest:r.rest}} touch("settings"); toast(pf.custom?"档案体重已更新":"已按新体重重新计算目标")}}
@@ -1504,11 +1515,12 @@ document.addEventListener("compositionend",ev=>{const el=ev.target; if(el.id==="
 document.addEventListener("keydown",ev=>{ if(ev.key!=="Enter"||ev.isComposing) return; const el=ev.target;
   if(el.id==="cu-q"){ev.preventDefault(); if(!cu.q.trim()) return;
     if(searchNow().length) el.blur(); else if(sampleFn) estimate(); else openManual()}
-  else if(el.id==="q-in"){ev.preventDefault();commitQ(el)} });
+  else if(el.id==="q-in"){ev.preventDefault();commitQ(el)}
+  else if(el.id==="cb-n"){ev.preventDefault();cbSave();render()} });
 /* 失焦：份量输入框保存；时间输入框结束编辑 */
 document.addEventListener("focusout",ev=>{const el=ev.target;
-  if(el.id==="q-in") commitQ(el);
-  else if(el.id==="mt-in"&&tEdit!=null){tEdit=null;render()} });
+  if(el.id==="q-in") commitQ(el,true);
+  else if(el.id==="mt-in"&&tEdit!=null){tEdit=null;laterRender()} });
 /* 点搜索结果里的 ☆ 时不让输入框失焦 */
 document.addEventListener("mousedown",ev=>{ if(ev.target.closest&&ev.target.closest('#sr [data-act="fav"]')) ev.preventDefault() });
 document.addEventListener("change",ev=>{
